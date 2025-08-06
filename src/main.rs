@@ -1,19 +1,29 @@
-use atrium_api::agent::{
-    Agent,
-    atp_agent::{CredentialSession, store::MemorySessionStore},
-};
-use atrium_xrpc_client::reqwest::ReqwestClient;
-use futures::future::join_all;
-use std::sync::Arc;
+use bevy::prelude::*;
+
+mod game;
+
+const LIMIT: u8 = 10;
 
 struct User {
     name: String,
     handle: String,
+    avatar: String,
     shared: Vec<usize>,
 }
 
+#[derive(Resource, Deref)]
+struct Users(Vec<User>);
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use atrium_api::agent::{
+        Agent,
+        atp_agent::{CredentialSession, store::MemorySessionStore},
+    };
+    use atrium_xrpc_client::reqwest::ReqwestClient;
+    use futures::future::join_all;
+    use std::sync::Arc;
+
     let session = CredentialSession::new(
         ReqwestClient::new("https://bsky.social"),
         MemorySessionStore::default(),
@@ -32,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             atrium_api::app::bsky::graph::get_follows::ParametersData {
                 actor,
                 cursor: None,
-                limit: Some(100.try_into()?),
+                limit: Some(LIMIT.try_into()?),
             }
             .into(),
         )
@@ -59,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         atrium_api::app::bsky::graph::get_follows::ParametersData {
                             actor,
                             cursor: None,
-                            limit: Some(100.try_into().unwrap()),
+                            limit: Some(LIMIT.try_into().unwrap()),
                         }
                         .into(),
                     )
@@ -77,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     User {
                         name: result.subject.display_name.clone().unwrap(),
                         handle: result.subject.handle.to_string(),
+                        avatar: result.subject.avatar.clone().unwrap(),
                         shared: follows
                             .follows
                             .iter()
@@ -90,6 +101,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             users.push(thread.join().unwrap());
         }
     });
+    /*
     for user in users.iter().skip(1) {
         println!(
             "{} also follows {:#?}",
@@ -100,5 +112,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect::<Vec<_>>()
         )
     }
+    */
+    bevy::app::App::new()
+        .insert_resource(Users(users))
+        .add_plugins((
+            bevy_web_asset::WebAssetPlugin,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "skyweb".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
+            bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
+        ))
+        .add_systems(Startup, game::spawn)
+        .run();
     Ok(())
 }

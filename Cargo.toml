@@ -8,3 +8,19 @@ atrium-api = "0.25"
 atrium-xrpc-client = "0.5"
 tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
 futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
+bevy = { version = "0.16", default-features = false , features = [
+    "x11",
+    "wayland",
+    "bevy_asset",
+    "bevy_scene",
+    "bevy_winit",
+    "bevy_core_pipeline",
+    "bevy_render",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "jpeg",
+    "multi_threaded",
+]}
+bevy_web_asset = { version = "0.11", default-features = false } # no redirection needed
+bevy-inspector-egui = "0.32"
