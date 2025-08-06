@@ -118,6 +118,38 @@ pub fn attract(
     }
 }
 
+pub fn resize(
+    mut events: EventReader<bevy::window::WindowResized>,
+    mut commands: Commands,
+    bounds: Query<Entity, (With<Collider>, Without<UserComp>)>,
+) {
+    for event in events.read() {
+        for bound in &bounds {
+            commands.entity(bound).despawn();
+        }
+        commands.spawn((
+            Collider::half_space(Vec2::Y),
+            RigidBody::Static,
+            Transform::from_translation(Vec3::NEG_Y * event.height / 2.0),
+        ));
+        commands.spawn((
+            Collider::half_space(Vec2::NEG_Y),
+            RigidBody::Static,
+            Transform::from_translation(Vec3::Y * event.height / 2.0),
+        ));
+        commands.spawn((
+            Collider::half_space(Vec2::X),
+            RigidBody::Static,
+            Transform::from_translation(Vec3::NEG_X * event.width / 2.0),
+        ));
+        commands.spawn((
+            Collider::half_space(Vec2::NEG_X),
+            RigidBody::Static,
+            Transform::from_translation(Vec3::X * event.width / 2.0),
+        ));
+    }
+}
+
 pub fn link(
     trigger: Trigger<Pointer<Pressed>>,
     mut ctx: bevy_inspector_egui::bevy_egui::EguiContexts,
