@@ -6,6 +6,8 @@ use bevy_dylib;
 mod game;
 
 const LIMIT: u8 = 100;
+const HANDLE: &str = include_str!("handle.txt");
+const PASSWORD: &str = include_str!("password.txt");
 
 struct User {
     name: String,
@@ -54,11 +56,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ReqwestClient::new("https://bsky.social"),
         MemorySessionStore::default(),
     );
-    session
-        .login("spuds.casa", include_str!("password.txt"))
-        .await?;
+    session.login(HANDLE, PASSWORD).await?;
     let agent = Agent::new(session);
-    let actor: atrium_api::types::string::AtIdentifier = "spuds.casa".parse()?;
+    let actor: atrium_api::types::string::AtIdentifier =
+        std::env::args().nth(1).unwrap_or(HANDLE.into()).parse()?;
     let mut follows = agent
         .api
         .app
@@ -66,13 +67,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .graph
         .get_follows(
             atrium_api::app::bsky::graph::get_follows::ParametersData {
-                actor,
+                actor: actor.clone(),
                 cursor: None,
                 limit: Some(LIMIT.try_into().unwrap()),
             }
             .into(),
         )
         .await?;
+    while follows.cursor.is_some() {
+        let cursor = follows.cursor.clone();
+        follows.follows.extend(
+            agent
+                .api
+                .app
+                .bsky
+                .graph
+                .get_follows(
+                    atrium_api::app::bsky::graph::get_follows::ParametersData {
+                        actor: actor.clone(),
+                        cursor,
+                        limit: Some(LIMIT.try_into().unwrap()),
+                    }
+                    .into(),
+                )
+                .await?
+                .data
+                .follows,
+        );
+    }
     // show your mutuals
     // currently does two requests for your followers :p
     let sub = follows.subject.clone();

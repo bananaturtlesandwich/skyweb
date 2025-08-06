@@ -1,4 +1,4 @@
 .cargo
 target
 Cargo.lock
-src/password.txt
+src/*.txt
