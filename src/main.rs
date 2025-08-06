@@ -1,9 +1,13 @@
 use bevy::prelude::*;
+#[allow(unused_imports, clippy::single_component_path_imports)]
+#[cfg(debug_assertions)]
+use bevy_dylib;
 
 mod game;
 
 const LIMIT: u8 = 10;
 
+#[derive(Component, Clone)]
 struct User {
     name: String,
     handle: String,
@@ -42,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             atrium_api::app::bsky::graph::get_follows::ParametersData {
                 actor,
                 cursor: None,
-                limit: Some(LIMIT.try_into()?),
+                limit: None,
             }
             .into(),
         )
@@ -124,10 +128,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }),
                 ..default()
             }),
+            avian2d::PhysicsPlugins::default(),
+            avian2d::picking::PhysicsPickingPlugin,
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
             bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
         ))
         .add_systems(Startup, game::spawn)
+        .add_observer(game::link)
         .run();
     Ok(())
 }

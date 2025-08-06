@@ -22,5 +22,12 @@ bevy = { version = "0.16", default-features = false , features = [
     "jpeg",
     "multi_threaded",
 ]}
+bevy_dylib = "0.16"
 bevy_web_asset = { version = "0.11", default-features = false } # no redirection needed
 bevy-inspector-egui = "0.32"
+avian2d = "0.3"
+webbrowser = "1.0"
+
+[profile.dev.package."*"]
+opt-level = 3
+
