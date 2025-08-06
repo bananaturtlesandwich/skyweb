@@ -100,9 +100,9 @@ pub fn attract(
     ) = combinations.fetch_next()
     {
         let pre =
-            (trans2.translation.xz() - trans1.translation.xz()).normalize() * time.delta_secs();
+            (trans2.translation.xy() - trans1.translation.xy()).normalize() * time.delta_secs();
         let attraction = pre * stats.attraction;
-        let repulsion = pre * stats.repulsion;
+        let repulsion = -pre * stats.repulsion;
         let contains1 = user1.shared.contains(&ent2);
         vel1.0 += match contains1 {
             true => attraction,
@@ -123,6 +123,9 @@ pub fn attract(
                 },
             );
         }
+    }
+    for (_, _, trans, mut vel) in &mut users {
+        vel.0 -= trans.translation.xy() * stats.gravity;
     }
 }
 

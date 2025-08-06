@@ -27,6 +27,7 @@ struct Users(Vec<User>);
 struct Stats {
     attraction: f32,
     repulsion: f32,
+    gravity: f32,
 }
 
 impl Default for Stats {
@@ -34,6 +35,7 @@ impl Default for Stats {
         Self {
             attraction: 100.0,
             repulsion: 0.0,
+            gravity: 0.005,
         }
     }
 }
@@ -137,6 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     }
     */
+    users.sort_unstable_by(|user1, user2| user2.shared.len().cmp(&user1.shared.len()));
     bevy::app::App::new()
         .register_type::<Stats>()
         .init_resource::<Stats>()
