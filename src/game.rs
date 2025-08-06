@@ -1,8 +1,8 @@
 use super::*;
 use avian2d::prelude::*;
 
-const ATTRACTION: f32 = 20.0;
-const REPULSION: f32 = 30.0;
+const ATTRACTION: f32 = 0.0;
+const REPULSION: f32 = 0.0;
 
 pub fn spawn(
     mut commands: Commands,
@@ -37,10 +37,14 @@ pub fn spawn(
         RigidBody::Static,
         Transform::from_translation(Vec3::X * width / 2.0),
     ));
-    let radius = (width * height / users.len() as f32 / std::f32::consts::PI).sqrt() / 1.5;
+    let radius = (width * height / users.len() as f32 / std::f32::consts::PI).sqrt() / 2.0;
     let orb = meshes.add(Circle::new(radius));
     let circle = Collider::circle(radius);
-    let mut pos = Vec3::new(-width / 2.0 + radius, -height / 2.0 + radius, 0.0);
+    let mut pos = Vec3::ZERO;
+    let mut layer = 0;
+    let mut capacity = 1;
+    let mut angle = 0.0;
+    let mut counter = 0;
     let entities = users
         .iter()
         .map(|user| {
@@ -48,7 +52,6 @@ pub fn spawn(
                 .spawn((
                     circle.clone(),
                     RigidBody::Dynamic,
-                    AngularVelocity(0.1),
                     Mesh2d(orb.clone()),
                     MeshMaterial2d(mats.add(ColorMaterial::from(server.load_with_settings(
                         &user.avatar,
@@ -59,10 +62,19 @@ pub fn spawn(
                     Transform::from_translation(pos),
                 ))
                 .id();
-            pos.x += radius * 2.0;
-            if pos.x > width / 2.0 {
-                pos.x -= width;
-                pos.y += radius * 2.0;
+            // it's currently half working
+            counter += 1;
+            pos = Quat::from_rotation_z(angle) * pos;
+            if counter == capacity {
+                counter = 0;
+                layer += 1;
+                // circumference of layer circle is 2*radius*layer*pi
+                // orb capacity in each layer is circumference/radius = 2*layer*pi
+                let cap = 2.0 * std::f32::consts::PI * layer as f32;
+                capacity = cap.floor() as u32;
+                // angle to rotate by is 2*pi/capacity = 2*pi / 2*pi*layer = 1/layer
+                angle = 1.0 / layer as f32;
+                pos += Vec3::Y * radius * 2.5;
             }
             ent
         })
