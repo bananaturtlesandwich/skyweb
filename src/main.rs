@@ -34,8 +34,8 @@ impl Default for Stats {
     fn default() -> Self {
         Self {
             attraction: 100.0,
-            repulsion: 0.0,
-            gravity: 0.005,
+            repulsion: 50.0,
+            gravity: 0.6,
         }
     }
 }
@@ -160,7 +160,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default(),
         ))
         .add_systems(Startup, game::spawn)
-        .add_systems(Update, game::attract)
+        .add_systems(Update, (game::attract, game::web))
         .add_observer(game::link)
         .run();
     Ok(())
