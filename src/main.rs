@@ -7,12 +7,17 @@ mod game;
 
 const LIMIT: u8 = 10;
 
-#[derive(Component, Clone)]
 struct User {
     name: String,
     handle: String,
     avatar: String,
     shared: Vec<usize>,
+}
+
+#[derive(Component, Clone)]
+struct UserComp {
+    handle: String,
+    shared: Vec<Entity>,
 }
 
 #[derive(Resource, Deref)]
@@ -119,6 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     */
     bevy::app::App::new()
         .insert_resource(Users(users))
+        .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
         .add_plugins((
             bevy_web_asset::WebAssetPlugin,
             DefaultPlugins.set(WindowPlugin {
@@ -134,6 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
         ))
         .add_systems(Startup, game::spawn)
+        .add_systems(Update, game::attract)
         .add_observer(game::link)
         .run();
     Ok(())
