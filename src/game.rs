@@ -1,8 +1,7 @@
 use super::*;
 use avian2d::prelude::*;
 
-const RADIUS: f32 = 20.0;
-const ATTRACTION: f32 = 10.0;
+const ATTRACTION: f32 = 50.0;
 
 pub fn spawn(
     mut commands: Commands,
@@ -40,18 +39,14 @@ pub fn spawn(
     let radius = (width * height / users.len() as f32 / std::f32::consts::PI).sqrt() / 2.0;
     let orb = meshes.add(Circle::new(radius));
     let circle = Collider::circle(radius);
+    let mut pos = Vec3::new(-width / 2.0 + radius, -height / 2.0 + radius, 0.0);
     let entities = users
         .iter()
-        .enumerate()
-        .map(|(i, user)| {
-            let i = i as f32;
-            let dist = radius * i;
-            let (sin, cos) = i.sin_cos();
-            commands
+        .map(|user| {
+            let ent = commands
                 .spawn((
                     circle.clone(),
                     RigidBody::Dynamic,
-                    // LinearVelocity(Vec2::NEG_Y * 10.0),
                     AngularVelocity(0.1),
                     Mesh2d(orb.clone()),
                     MeshMaterial2d(mats.add(ColorMaterial::from(server.load_with_settings(
@@ -60,9 +55,15 @@ pub fn spawn(
                             s.format = bevy::image::ImageFormatSetting::Format(ImageFormat::Jpeg)
                         },
                     )))),
-                    // Transform::from_translation(Vec3::new(dist * sin, dist * cos, 0.0)),
+                    Transform::from_translation(pos),
                 ))
-                .id()
+                .id();
+            pos.x += radius * 2.0;
+            if pos.x > width / 2.0 {
+                pos.x -= width;
+                pos.y += radius * 2.0;
+            }
+            ent
         })
         .collect::<Vec<_>>();
     for (user, ent) in users.iter().zip(&entities) {
@@ -88,7 +89,11 @@ pub fn attract(
             let Ok(shared) = transforms.get(*shared) else {
                 continue;
             };
-            gizmo.line(trans.translation, shared.translation, LinearRgba::GREEN);
+            gizmo.line(
+                trans.translation.with_z(-1.0),
+                shared.translation.with_z(-1.0),
+                LinearRgba::GREEN,
+            );
             vel.0 += (shared.translation.xz() - trans.translation.xz()).normalize()
                 * ATTRACTION
                 * time.delta_secs();
