@@ -1,9 +1,6 @@
 use super::*;
 use avian2d::prelude::*;
 
-const ATTRACTION: f32 = 0.0;
-const REPULSION: f32 = 0.0;
-
 pub fn spawn(
     mut commands: Commands,
     server: Res<AssetServer>,
@@ -91,6 +88,7 @@ pub fn spawn(
 pub fn attract(
     mut gizmo: Gizmos,
     time: Res<Time>,
+    stats: Res<Stats>,
     mut users: Query<(Entity, &UserComp, &Transform, &mut LinearVelocity)>,
 ) {
     let mut combinations = users.iter_combinations_mut();
@@ -103,8 +101,8 @@ pub fn attract(
     {
         let pre =
             (trans2.translation.xz() - trans1.translation.xz()).normalize() * time.delta_secs();
-        let attraction = pre * ATTRACTION;
-        let repulsion = pre * REPULSION;
+        let attraction = pre * stats.attraction;
+        let repulsion = pre * stats.repulsion;
         let contains1 = user1.shared.contains(&ent2);
         vel1.0 += match contains1 {
             true => attraction,

@@ -23,6 +23,21 @@ struct UserComp {
 #[derive(Resource, Deref)]
 struct Users(Vec<User>);
 
+#[derive(Resource, Reflect)]
+struct Stats {
+    attraction: f32,
+    repulsion: f32,
+}
+
+impl Default for Stats {
+    fn default() -> Self {
+        Self {
+            attraction: 100.0,
+            repulsion: 0.0,
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use atrium_api::agent::{
@@ -123,6 +138,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     */
     bevy::app::App::new()
+        .register_type::<Stats>()
+        .init_resource::<Stats>()
         .insert_resource(Users(users))
         .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
         .add_plugins((
@@ -137,7 +154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
-            bevy_inspector_egui::quick::WorldInspectorPlugin::new(),
+            bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default(),
         ))
         .add_systems(Startup, game::spawn)
         .add_systems(Update, game::attract)
