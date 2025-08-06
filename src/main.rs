@@ -5,7 +5,7 @@ use bevy_dylib;
 
 mod game;
 
-const LIMIT: u8 = 10;
+const LIMIT: u8 = 100;
 
 struct User {
     name: String,
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             atrium_api::app::bsky::graph::get_follows::ParametersData {
                 actor,
                 cursor: None,
-                limit: None,
+                limit: Some(LIMIT.try_into().unwrap()),
             }
             .into(),
         )

@@ -1,7 +1,8 @@
 use super::*;
 use avian2d::prelude::*;
 
-const ATTRACTION: f32 = 50.0;
+const ATTRACTION: f32 = 20.0;
+const REPULSION: f32 = 30.0;
 
 pub fn spawn(
     mut commands: Commands,
@@ -36,7 +37,7 @@ pub fn spawn(
         RigidBody::Static,
         Transform::from_translation(Vec3::X * width / 2.0),
     ));
-    let radius = (width * height / users.len() as f32 / std::f32::consts::PI).sqrt() / 2.0;
+    let radius = (width * height / users.len() as f32 / std::f32::consts::PI).sqrt() / 1.5;
     let orb = meshes.add(Circle::new(radius));
     let circle = Collider::circle(radius);
     let mut pos = Vec3::new(-width / 2.0 + radius, -height / 2.0 + radius, 0.0);
@@ -78,25 +79,39 @@ pub fn spawn(
 pub fn attract(
     mut gizmo: Gizmos,
     time: Res<Time>,
-    mut users: Query<(Entity, &UserComp, &mut LinearVelocity)>,
-    transforms: Query<&Transform>,
+    mut users: Query<(Entity, &UserComp, &Transform, &mut LinearVelocity)>,
 ) {
-    for (ent, user, mut vel) in &mut users {
-        for shared in &user.shared {
-            let Ok(trans) = transforms.get(ent) else {
-                continue;
-            };
-            let Ok(shared) = transforms.get(*shared) else {
-                continue;
-            };
+    let mut combinations = users.iter_combinations_mut();
+    while let Some(
+        [
+            (ent1, user1, trans1, mut vel1),
+            (ent2, user2, trans2, mut vel2),
+        ],
+    ) = combinations.fetch_next()
+    {
+        let pre =
+            (trans2.translation.xz() - trans1.translation.xz()).normalize() * time.delta_secs();
+        let attraction = pre * ATTRACTION;
+        let repulsion = pre * REPULSION;
+        let contains1 = user1.shared.contains(&ent2);
+        vel1.0 += match contains1 {
+            true => attraction,
+            false => repulsion,
+        };
+        let contains2 = user2.shared.contains(&ent1);
+        vel2.0 += match contains2 {
+            true => -attraction,
+            false => -repulsion,
+        };
+        if contains1 || contains2 {
             gizmo.line(
-                trans.translation.with_z(-1.0),
-                shared.translation.with_z(-1.0),
-                LinearRgba::GREEN,
+                trans1.translation,
+                trans2.translation,
+                match contains1 && contains2 {
+                    true => LinearRgba::RED,
+                    false => LinearRgba::GREEN,
+                },
             );
-            vel.0 += (shared.translation.xz() - trans.translation.xz()).normalize()
-                * ATTRACTION
-                * time.delta_secs();
         }
     }
 }
