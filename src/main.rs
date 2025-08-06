@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     let agent = Agent::new(session);
     let actor: atrium_api::types::string::AtIdentifier = "spuds.casa".parse()?;
-    let follows = agent
+    let mut follows = agent
         .api
         .app
         .bsky
@@ -37,12 +37,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .into(),
         )
         .await?;
-    let mut users = Vec::with_capacity(follows.follows.len() + 1);
-    users.push(User {
-        name: follows.subject.display_name.clone().unwrap(),
-        handle: follows.subject.handle.to_string(),
-        shared: (0..follows.follows.len()).collect(),
-    });
+    // show your mutuals
+    // currently does two requests for your followers :p
+    let sub = follows.subject.clone();
+    follows.follows.insert(0, sub);
+    let mut users = Vec::with_capacity(follows.follows.len());
     let agent = Arc::new(agent);
     let handles = follows
         .follows
