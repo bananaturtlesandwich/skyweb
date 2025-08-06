@@ -1,0 +1,10 @@
+[package]
+name = "skyweb"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+atrium-api = "0.25"
+atrium-xrpc-client = "0.5"
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
