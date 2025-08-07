@@ -33,8 +33,8 @@ const LIMIT: u8 = 20;
 const HANDLE: &str = include_str!("handle.txt");
 const PASSWORD: &str = include_str!("password.txt");
 
-#[derive(Component, Clone)]
-struct UserComp {
+#[derive(Component)]
+struct User {
     handle: String,
     shared: Vec<Entity>,
 }
@@ -50,5 +50,4 @@ enum Game {
     Login,
     Get,
     Connect,
-    Attract,
 }

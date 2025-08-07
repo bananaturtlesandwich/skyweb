@@ -18,7 +18,15 @@ impl Plugin for Request {
                 tokio.spawn_background_task(login);
             },
         )
-        .add_systems(OnEnter(Game::Get), place);
+        .add_systems(OnEnter(Game::Get), place)
+        .add_systems(
+            OnEnter(Game::Connect),
+            |tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>, users: Res<Users>| {
+                for user in users.clone().into_iter() {
+                    tokio.spawn_background_task(|ctx| connect(ctx, user));
+                }
+            },
+        );
     }
 }
 
@@ -188,6 +196,7 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     {
         cursor = res.cursor.clone();
         // lmao the number of scopes here is crazy
+        #[rustfmt::skip]
         ctx.run_on_main_thread(|bevy| {
             bevy.world.resource_scope(|world, mut users: Mut<Users>| {
                 world.resource_scope(|world, mut placement: Mut<Placement>| {
@@ -197,7 +206,7 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
                                 let mut commands = world.commands();
                                 for follow in res.data.follows {
                                     users.insert(
-                                        follow.did.as_str().into(),
+                                        follow.handle.as_str().into(),
                                         commands
                                             .spawn((
                                                 orb.collider.clone(),
@@ -234,92 +243,46 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     .await;
 }
 
-/*
-pub async fn old() -> Result<(), Box<dyn std::error::Error>> {
-    let actor: atrium_api::types::string::AtIdentifier =
-        std::env::args().nth(1).unwrap_or(HANDLE.into()).parse()?;
-    let mut follows = agent
+async fn connect(mut ctx: bevy_tokio_tasks::TaskContext, (handle, ent): (String, Entity)) {
+    let actor: atrium_api::types::string::AtIdentifier = handle.parse().unwrap();
+    let bsky = bsky();
+    let mut cursor = None;
+    ctx.run_on_main_thread(move |bevy| {
+        bevy.world.entity_mut(ent.clone()).insert(User {
+            handle,
+            shared: Vec::new(),
+        });
+    })
+    .await;
+    while let Ok(res) = bsky
+        .agent
         .api
         .app
         .bsky
         .graph
         .get_follows(
-            atrium_api::app::bsky::graph::get_follows::ParametersData {
+            get_follows::ParametersData {
                 actor: actor.clone(),
-                cursor: None,
+                cursor,
                 limit: Some(LIMIT.try_into().unwrap()),
             }
             .into(),
         )
-        .await?;
-    while follows.cursor.is_some() {
-        let cursor = follows.cursor.clone();
-        follows.follows.extend(
-            agent
-                .api
-                .app
-                .bsky
-                .graph
-                .get_follows(
-                    atrium_api::app::bsky::graph::get_follows::ParametersData {
-                        actor: actor.clone(),
-                        cursor,
-                        limit: Some(LIMIT.try_into().unwrap()),
+        .await
+        && res.cursor.is_some()
+    {
+        cursor = res.cursor.clone();
+        ctx.run_on_main_thread(move |bevy| {
+            bevy.world.resource_scope(move |world, users: Mut<Users>| {
+                let mut ent = world.entity_mut(ent.clone());
+                let mut user = ent.get_mut::<User>().unwrap();
+                for follow in res.data.follows {
+                    if let Some(ent) = users.get(follow.handle.as_str()) {
+                        user.shared.push(ent.clone());
                     }
-                    .into(),
-                )
-                .await?
-                .data
-                .follows,
-        );
-    }
-    // show your mutuals
-    // currently does two requests for your followers :p
-    let sub = follows.subject.clone();
-    follows.follows.insert(0, sub);
-    let mut users = Vec::with_capacity(follows.follows.len());
-    let agent = Arc::new(agent);
-    let handles = follows
-        .follows
-        .iter()
-        .map(|actor| {
-            let agent = Arc::clone(&agent);
-            let actor = actor.handle.parse().unwrap();
-            agent.api.app.bsky.graph.get_follows(
-                atrium_api::app::bsky::graph::get_follows::ParametersData {
-                    actor,
-                    cursor: None,
-                    limit: Some(LIMIT.try_into().unwrap()),
                 }
-                .into(),
-            )
+            })
         })
-        .collect::<Vec<_>>();
-    let results = join_all(handles).await;
-    std::thread::scope(|sc| {
-        let threads = results
-            .into_iter()
-            .map(|result| -> std::thread::ScopedJoinHandle<_> {
-                sc.spawn(|| {
-                    let result = result.unwrap().unwrap();
-                    User {
-                        name: result.subject.display_name.clone().unwrap(),
-                        handle: result.subject.handle.to_string(),
-                        avatar: result.subject.avatar.clone().unwrap(),
-                        shared: follows
-                            .follows
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(i, follow)| result.follows.contains(follow).then_some(i))
-                            .collect(),
-                    }
-                })
-            });
-        for thread in threads {
-            users.push(thread.join().unwrap());
-        }
-    });
-    users.sort_unstable_by(|user1, user2| user2.shared.len().cmp(&user1.shared.len()));
-    Ok(())
+        .await;
+    }
 }
-*/

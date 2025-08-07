@@ -10,7 +10,7 @@ impl Plugin for Attraction {
             .add_plugins(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default())
             .add_systems(
                 Update,
-                (attract, web, resize).run_if(in_state(Game::Attract)),
+                (attract, web, resize).run_if(in_state(Game::Connect)),
             )
             .add_observer(link);
     }
@@ -36,7 +36,7 @@ impl Default for Stats {
 fn attract(
     time: Res<Time>,
     stats: Res<Stats>,
-    mut users: Query<(Entity, &UserComp, &Transform, &mut LinearVelocity)>,
+    mut users: Query<(Entity, &User, &Transform, &mut LinearVelocity)>,
 ) {
     let mut combinations = users.iter_combinations_mut();
     while let Some(
@@ -66,10 +66,10 @@ fn attract(
     }
 }
 
-pub fn resize(
+fn resize(
     mut events: EventReader<bevy::window::WindowResized>,
     mut commands: Commands,
-    bounds: Query<Entity, (With<Collider>, Without<UserComp>)>,
+    bounds: Query<Entity, (With<Collider>, Without<User>)>,
 ) {
     for event in events.read() {
         for bound in &bounds {
@@ -101,7 +101,7 @@ pub fn resize(
 fn link(
     trigger: Trigger<Pointer<Pressed>>,
     mut ctx: bevy_inspector_egui::bevy_egui::EguiContexts,
-    users: Query<&UserComp>,
+    users: Query<&User>,
 ) {
     if ctx.ctx_mut().unwrap().is_pointer_over_area() {
         return;
@@ -112,10 +112,10 @@ fn link(
     webbrowser::open(&format!("https://bsky.app/profile/{}", user.handle)).unwrap();
 }
 
-pub fn web(
+fn web(
     mut gizmo: Gizmos,
     interactions: Query<&bevy::picking::pointer::PointerInteraction>,
-    users: Query<(&UserComp, &Transform)>,
+    users: Query<(&User, &Transform)>,
 ) {
     for (ent, _) in interactions
         .iter()
