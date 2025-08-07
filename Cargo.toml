@@ -6,12 +6,11 @@ edition = "2024"
 [dependencies]
 atrium-api = "0.25"
 atrium-xrpc-client = "0.5"
-tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
-futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
 bevy = { version = "0.16", default-features = false , features = [
     "x11",
     "wayland",
     "bevy_asset",
+    "bevy_state",
     "bevy_scene",
     "bevy_winit",
     "bevy_core_pipeline",

@@ -1,6 +1,23 @@
 use super::*;
 use avian2d::prelude::*;
 
+#[derive(Resource, Reflect)]
+struct Stats {
+    attraction: f32,
+    repulsion: f32,
+    gravity: f32,
+}
+
+impl Default for Stats {
+    fn default() -> Self {
+        Self {
+            attraction: 100.0,
+            repulsion: 50.0,
+            gravity: 0.1,
+        }
+    }
+}
+
 pub fn spawn(
     mut commands: Commands,
     server: Res<AssetServer>,

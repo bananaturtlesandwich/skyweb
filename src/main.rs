@@ -4,6 +4,33 @@ use bevy::prelude::*;
 use bevy_dylib;
 
 mod game;
+mod request;
+
+fn main() -> AppExit {
+    bevy::app::App::new()
+        .register_type::<Stats>()
+        .init_resource::<Stats>()
+        .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
+        .add_plugins((
+            bevy_web_asset::WebAssetPlugin,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "skyweb".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            avian2d::PhysicsPlugins::default(),
+            avian2d::picking::PhysicsPickingPlugin,
+            bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
+            bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default(),
+        ))
+        .add_systems(Startup, game::spawn)
+        .add_systems(Update, (game::attract, game::web, game::resize))
+        .add_systems(Update, request::login.run_if(in_state(Game::Login)))
+        .add_observer(game::link)
+        .run()
+}
 
 const LIMIT: u8 = 100;
 const HANDLE: &str = include_str!("handle.txt");
@@ -25,165 +52,11 @@ struct UserComp {
 #[derive(Resource, Deref)]
 struct Users(Vec<User>);
 
-#[derive(Resource, Reflect)]
-struct Stats {
-    attraction: f32,
-    repulsion: f32,
-    gravity: f32,
-}
-
-impl Default for Stats {
-    fn default() -> Self {
-        Self {
-            attraction: 100.0,
-            repulsion: 50.0,
-            gravity: 0.1,
-        }
-    }
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use atrium_api::agent::{
-        Agent,
-        atp_agent::{CredentialSession, store::MemorySessionStore},
-    };
-    use atrium_xrpc_client::reqwest::ReqwestClient;
-    use futures::future::join_all;
-    use std::sync::Arc;
-
-    let session = CredentialSession::new(
-        ReqwestClient::new("https://bsky.social"),
-        MemorySessionStore::default(),
-    );
-    session.login(HANDLE, PASSWORD).await?;
-    let agent = Agent::new(session);
-    let actor: atrium_api::types::string::AtIdentifier =
-        std::env::args().nth(1).unwrap_or(HANDLE.into()).parse()?;
-    let mut follows = agent
-        .api
-        .app
-        .bsky
-        .graph
-        .get_follows(
-            atrium_api::app::bsky::graph::get_follows::ParametersData {
-                actor: actor.clone(),
-                cursor: None,
-                limit: Some(LIMIT.try_into().unwrap()),
-            }
-            .into(),
-        )
-        .await?;
-    while follows.cursor.is_some() {
-        let cursor = follows.cursor.clone();
-        follows.follows.extend(
-            agent
-                .api
-                .app
-                .bsky
-                .graph
-                .get_follows(
-                    atrium_api::app::bsky::graph::get_follows::ParametersData {
-                        actor: actor.clone(),
-                        cursor,
-                        limit: Some(LIMIT.try_into().unwrap()),
-                    }
-                    .into(),
-                )
-                .await?
-                .data
-                .follows,
-        );
-    }
-    // show your mutuals
-    // currently does two requests for your followers :p
-    let sub = follows.subject.clone();
-    follows.follows.insert(0, sub);
-    let mut users = Vec::with_capacity(follows.follows.len());
-    let agent = Arc::new(agent);
-    let handles = follows
-        .follows
-        .iter()
-        .map(|actor| {
-            let agent = Arc::clone(&agent);
-            let actor = actor.handle.parse().unwrap();
-            tokio::spawn(async move {
-                agent
-                    .api
-                    .app
-                    .bsky
-                    .graph
-                    .get_follows(
-                        atrium_api::app::bsky::graph::get_follows::ParametersData {
-                            actor,
-                            cursor: None,
-                            limit: Some(LIMIT.try_into().unwrap()),
-                        }
-                        .into(),
-                    )
-                    .await
-            })
-        })
-        .collect::<Vec<_>>();
-    let results = join_all(handles).await;
-    std::thread::scope(|sc| {
-        let threads = results
-            .into_iter()
-            .map(|result| -> std::thread::ScopedJoinHandle<_> {
-                sc.spawn(|| {
-                    let result = result.unwrap().unwrap();
-                    User {
-                        name: result.subject.display_name.clone().unwrap(),
-                        handle: result.subject.handle.to_string(),
-                        avatar: result.subject.avatar.clone().unwrap(),
-                        shared: follows
-                            .follows
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(i, follow)| result.follows.contains(follow).then_some(i))
-                            .collect(),
-                    }
-                })
-            });
-        for thread in threads {
-            users.push(thread.join().unwrap());
-        }
-    });
-    /*
-    for user in users.iter().skip(1) {
-        println!(
-            "{} also follows {:#?}",
-            &user.name,
-            user.shared
-                .iter()
-                .map(|i| &users[*i].name)
-                .collect::<Vec<_>>()
-        )
-    }
-    */
-    users.sort_unstable_by(|user1, user2| user2.shared.len().cmp(&user1.shared.len()));
-    bevy::app::App::new()
-        .register_type::<Stats>()
-        .init_resource::<Stats>()
-        .insert_resource(Users(users))
-        .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
-        .add_plugins((
-            bevy_web_asset::WebAssetPlugin,
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "skyweb".into(),
-                    ..default()
-                }),
-                ..default()
-            }),
-            avian2d::PhysicsPlugins::default(),
-            avian2d::picking::PhysicsPickingPlugin,
-            bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
-            bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default(),
-        ))
-        .add_systems(Startup, game::spawn)
-        .add_systems(Update, (game::attract, game::web, game::resize))
-        .add_observer(game::link)
-        .run();
-    Ok(())
+#[derive(States, Debug, Eq, PartialEq, Hash, Clone)]
+enum Game {
+    Ask,
+    Login,
+    Get,
+    Connect,
+    Attract,
 }
