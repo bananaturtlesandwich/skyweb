@@ -32,8 +32,7 @@ impl Plugin for Request {
 
 struct Bsky {
     actor: atrium_api::types::string::AtIdentifier,
-    // todo: remove radius and just allow moving the camera
-    follows: usize,
+    profile: atrium_api::app::bsky::actor::defs::ProfileViewDetailedData,
     agent: Agent<Session>,
 }
 
@@ -79,7 +78,7 @@ async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
                     .unwrap_or(HANDLE.into())
                     .parse()
                     .unwrap(),
-                follows: profile.follows_count.unwrap() as usize,
+                profile: profile.data,
                 agent,
             });
             ctx.run_on_main_thread(|bevy| {
@@ -157,7 +156,10 @@ fn place(
         RigidBody::Static,
         Transform::from_translation(Vec3::X * width / 2.0),
     ));
-    let radius = (width * height / bsky().follows as f32 / std::f32::consts::PI).sqrt() / 2.0;
+    let radius =
+        (width * height / bsky().profile.follows_count.unwrap() as f32 / std::f32::consts::PI)
+            .sqrt()
+            / 2.0;
     commands.insert_resource(Placement {
         radius,
         pos: Vec3::ZERO,
@@ -177,6 +179,43 @@ fn place(
 async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     let bsky = bsky();
     let mut cursor = None;
+    #[rustfmt::skip]
+    ctx.run_on_main_thread(|bevy| {
+        // lmao the number of scopes here is crazy
+        bevy.world.resource_scope(|world, mut users: Mut<Users>| {
+            world.resource_scope(|world, mut placement: Mut<Placement>| {
+                world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
+                    world.resource_scope(|world, orb: Mut<Orb>| {
+                        world.resource_scope(|world, server: Mut<AssetServer>| {
+                            let mut commands = world.commands();
+                                users.insert(
+                                    bsky.profile.handle.as_str().into(),
+                                    commands
+                                        .spawn((
+                                            orb.collider.clone(),
+                                            avian2d::prelude::RigidBody::Dynamic,
+                                            Mesh2d(orb.mesh.clone_weak()),
+                                            MeshMaterial2d(mats.add(ColorMaterial::from(
+                                                server.load_with_settings(
+                                                    &bsky.profile.avatar.clone().unwrap_or_default(),
+                                                    |s: &mut bevy::image::ImageLoaderSettings| {
+                                                        s.format =
+                                                            bevy::image::ImageFormatSetting::Format(
+                                                                ImageFormat::Jpeg,
+                                                            )
+                                                    },
+                                                ),
+                                            ))),
+                                            Transform::from_translation(placement.next()),
+                                        ))
+                                        .id(),
+                                );
+                        })
+                    })
+                })
+            })
+        });
+    }).await;
     while let Ok(res) = bsky
         .agent
         .api
@@ -195,9 +234,9 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
         && res.cursor.is_some()
     {
         cursor = res.cursor.clone();
-        // lmao the number of scopes here is crazy
         #[rustfmt::skip]
         ctx.run_on_main_thread(|bevy| {
+            // round two for everyone else!
             bevy.world.resource_scope(|world, mut users: Mut<Users>| {
                 world.resource_scope(|world, mut placement: Mut<Placement>| {
                     world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
