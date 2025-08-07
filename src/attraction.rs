@@ -103,7 +103,7 @@ fn link(
     mut ctx: bevy_inspector_egui::bevy_egui::EguiContexts,
     users: Query<&User>,
 ) {
-    if ctx.ctx_mut().unwrap().is_pointer_over_area() {
+    if ctx.ctx_mut().is_ok_and(|ctx| ctx.is_pointer_over_area()) {
         return;
     }
     let Ok(user) = users.get(trigger.target()) else {
