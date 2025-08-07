@@ -21,6 +21,7 @@ fn main() -> AppExit {
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
+            bevy_tokio_tasks::TokioTasksPlugin::default(),
             request::Request,
             attraction::Attraction,
         ))
@@ -38,7 +39,7 @@ struct UserComp {
     shared: Vec<Entity>,
 }
 
-#[derive(Resource, Deref, DerefMut)]
+#[derive(Resource, Deref, DerefMut, Default)]
 struct Users(std::collections::BTreeMap<String, Entity>);
 
 #[derive(States, Default, Debug, Eq, PartialEq, Hash, Clone)]

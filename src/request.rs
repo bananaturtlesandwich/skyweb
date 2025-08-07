@@ -13,11 +13,10 @@ pub struct Request;
 impl Plugin for Request {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
-            (
-                login.run_if(in_state(Game::Login)),
-                get.run_if(in_state(Game::Get)),
-            ),
+            OnEnter(Game::Login),
+            |tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>| {
+                tokio.spawn_background_task(login);
+            },
         )
         .add_systems(OnEnter(Game::Get), place);
     }
@@ -36,67 +35,52 @@ fn bsky() -> &'static Bsky {
     BSKY.get().unwrap()
 }
 
-// todo: don't block on this
-pub fn login(
-    mut next: ResMut<NextState<Game>>,
-    mut session: Local<Option<Session>>,
-    mut agent: Local<Option<Agent<Session>>>,
-) {
+async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
+    let session = Session::new(
+        atrium_xrpc_client::reqwest::ReqwestClient::new("https://bsky.social"),
+        atrium_api::agent::atp_agent::store::MemorySessionStore::default(),
+    );
     let actor: atrium_api::types::string::AtIdentifier = std::env::args()
         .nth(1)
         .unwrap_or(HANDLE.into())
         .parse()
         .unwrap();
-    let agentref = match agent.as_ref() {
-        Some(agent) => agent,
-        None => {
-            if bevy::tasks::block_on(session
-                .get_or_insert_with(|| {
-                    Session::new(
-                        atrium_xrpc_client::reqwest::ReqwestClient::new("https://bsky.social"),
-                        atrium_api::agent::atp_agent::store::MemorySessionStore::default(),
-                    )
-                })
-                .login(HANDLE, PASSWORD)
-        )
-        .is_ok()
-            // always true by this point
-            && let Some(session) = session.take()
-            {
-                let _ = agent.insert(Agent::new(session));
-                agent.as_ref().unwrap()
-            } else {
-                return;
-            }
+    loop {
+        if session.login(HANDLE, PASSWORD).await.is_ok() {
+            break;
         }
-    };
-    if let Ok(profile) = bevy::tasks::block_on(
-        agentref.api.app.bsky.actor.get_profile(atrium_api::app::bsky::actor::get_profile::ParametersData{
-            actor: actor.clone(),
-        }.into())
-    )
-        // always true by this point
-        && let Some(agent) = agent.take()
-    {
-        BSKY.get_or_init(|| Bsky {
-            actor: std::env::args()
-                .nth(1)
-                .unwrap_or(HANDLE.into())
-                .parse()
-                .unwrap(),
-            follows: profile.follows_count.unwrap() as usize,
-            agent,
-        });
-        next.set(Game::Get);
     }
-}
-
-#[derive(Resource)]
-struct Get {
-    cursor: Option<String>,
-    task: Option<
-        bevy::tasks::Task<atrium_api::xrpc::Result<get_follows::Output, get_follows::Error>>,
-    >,
+    let agent = Agent::new(session);
+    loop {
+        if let Ok(profile) = agent
+            .api
+            .app
+            .bsky
+            .actor
+            .get_profile(
+                atrium_api::app::bsky::actor::get_profile::ParametersData {
+                    actor: actor.clone(),
+                }
+                .into(),
+            )
+            .await
+        {
+            BSKY.get_or_init(|| Bsky {
+                actor: std::env::args()
+                    .nth(1)
+                    .unwrap_or(HANDLE.into())
+                    .parse()
+                    .unwrap(),
+                follows: profile.follows_count.unwrap() as usize,
+                agent,
+            });
+            ctx.run_on_main_thread(|bevy| {
+                bevy.world.resource_mut::<NextState<Game>>().set(Game::Get)
+            })
+            .await;
+            break;
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -134,7 +118,12 @@ struct Orb {
     collider: avian2d::prelude::Collider,
 }
 
-fn place(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, window: Single<&Window>) {
+fn place(
+    mut commands: Commands,
+    tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    window: Single<&Window>,
+) {
     use avian2d::prelude::*;
     commands.spawn(Camera2d);
     let width = window.width();
@@ -173,65 +162,76 @@ fn place(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, window: Singl
         mesh: meshes.add(Circle::new(radius)),
         collider: Collider::circle(radius),
     });
+    commands.init_resource::<Users>();
+    tokio.spawn_background_task(get);
 }
 
-fn get(
-    mut commands: Commands,
-    orb: Res<Orb>,
-    server: Res<AssetServer>,
-    mut tasks: ResMut<Get>,
-    mut users: ResMut<Users>,
-    mut placement: ResMut<Placement>,
-    mut mats: ResMut<Assets<ColorMaterial>>,
-    mut next: ResMut<NextState<Game>>,
-) {
-    let pool = bevy::tasks::IoTaskPool::get();
+async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     let bsky = bsky();
-    if tasks.task.as_ref().is_some_and(|task| task.is_finished())
-        && let Some(Ok(res)) = bevy::tasks::block_on(tasks.task.take().unwrap().cancel())
-    {
-        for follow in &res.follows {
-            users.insert(
-                follow.did.as_str().into(),
-                commands
-                    .spawn((
-                        orb.collider.clone(),
-                        avian2d::prelude::RigidBody::Dynamic,
-                        Mesh2d(orb.mesh.clone_weak()),
-                        MeshMaterial2d(mats.add(ColorMaterial::from(server.load_with_settings(
-                            &follow.avatar.clone().unwrap_or_default(),
-                            |s: &mut bevy::image::ImageLoaderSettings| {
-                                s.format =
-                                    bevy::image::ImageFormatSetting::Format(ImageFormat::Jpeg)
-                            },
-                        )))),
-                        Transform::from_translation(placement.next()),
-                    ))
-                    .id(),
-            );
-        }
-        match &res.cursor {
-            Some(cursor) => tasks.cursor = Some(cursor.clone()),
-            None => {
-                commands.remove_resource::<Get>();
-                next.set(Game::Connect);
-                return;
+    let mut cursor = None;
+    while let Ok(res) = bsky
+        .agent
+        .api
+        .app
+        .bsky
+        .graph
+        .get_follows(
+            get_follows::ParametersData {
+                actor: bsky.actor.clone(),
+                cursor,
+                limit: Some(LIMIT.try_into().unwrap()),
             }
-        }
+            .into(),
+        )
+        .await
+        && res.cursor.is_some()
+    {
+        cursor = res.cursor.clone();
+        // lmao the number of scopes here is crazy
+        ctx.run_on_main_thread(|bevy| {
+            bevy.world.resource_scope(|world, mut users: Mut<Users>| {
+                world.resource_scope(|world, mut placement: Mut<Placement>| {
+                    world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
+                        world.resource_scope(|world, orb: Mut<Orb>| {
+                            world.resource_scope(|world, server: Mut<AssetServer>| {
+                                let mut commands = world.commands();
+                                for follow in res.data.follows {
+                                    users.insert(
+                                        follow.did.as_str().into(),
+                                        commands
+                                            .spawn((
+                                                orb.collider.clone(),
+                                                avian2d::prelude::RigidBody::Dynamic,
+                                                Mesh2d(orb.mesh.clone_weak()),
+                                                MeshMaterial2d(mats.add(ColorMaterial::from(
+                                                    server.load_with_settings(
+                                                        &follow.avatar.clone().unwrap_or_default(),
+                                                        |s: &mut bevy::image::ImageLoaderSettings| {
+                                                            s.format =
+                                                                bevy::image::ImageFormatSetting::Format(
+                                                                    ImageFormat::Jpeg,
+                                                                )
+                                                        },
+                                                    ),
+                                                ))),
+                                                Transform::from_translation(placement.next()),
+                                            ))
+                                            .id(),
+                                    );
+                                }
+                            })
+                        })
+                    })
+                })
+            });
+        }).await;
     }
-    let cursor = tasks.cursor.clone();
-    tasks.task = Some(
-        pool.spawn(
-            bsky.agent.api.app.bsky.graph.get_follows(
-                get_follows::ParametersData {
-                    actor: bsky.actor.clone(),
-                    cursor,
-                    limit: Some(LIMIT.try_into().unwrap()),
-                }
-                .into(),
-            ),
-        ),
-    )
+    ctx.run_on_main_thread(|bevy| {
+        bevy.world
+            .resource_mut::<NextState<Game>>()
+            .set(Game::Connect)
+    })
+    .await;
 }
 
 /*

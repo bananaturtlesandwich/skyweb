@@ -24,6 +24,7 @@ bevy = { version = "0.16", default-features = false , features = [
 bevy_dylib = "0.16"
 bevy_web_asset = { version = "0.11", default-features = false } # no redirection needed
 bevy-inspector-egui = "0.32"
+bevy-tokio-tasks = "0.16"
 avian2d = "0.3"
 webbrowser = "1.0"
 
