@@ -77,10 +77,13 @@ pub fn login(
     }
 }
 
-#[derive(Resource, Deref, DerefMut)]
-struct Get(
-    Vec<bevy::tasks::Task<atrium_api::xrpc::Result<get_follows::Output, get_follows::Error>>>,
-);
+#[derive(Resource)]
+struct Get {
+    cursor: Option<String>,
+    task: Option<
+        bevy::tasks::Task<atrium_api::xrpc::Result<get_follows::Output, get_follows::Error>>,
+    >,
+}
 
 #[derive(Resource)]
 struct Placement {
@@ -115,29 +118,6 @@ impl Placement {
 struct Orb {
     mesh: Handle<Mesh>,
     collider: avian2d::prelude::Collider,
-}
-
-pub fn begin_get(mut commands: Commands) {
-    let pool = bevy::tasks::IoTaskPool::get();
-    let bsky = bsky();
-    let mut tasks = Get(Vec::new());
-    tasks.push(pool.spawn(async {
-        bsky.agent
-            .api
-            .app
-            .bsky
-            .graph
-            .get_follows(
-                get_follows::ParametersData {
-                    actor: bsky.actor.clone(),
-                    cursor: None,
-                    limit: Some(LIMIT.try_into().unwrap()),
-                }
-                .into(),
-            )
-            .await
-    }));
-    commands.insert_resource(tasks);
 }
 
 fn place(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, window: Single<&Window>) {
@@ -192,58 +172,55 @@ pub fn get(
 ) {
     let pool = bevy::tasks::IoTaskPool::get();
     let bsky = bsky();
-    for i in (0..tasks.len()).rev() {
-        if tasks[i].is_finished() {
-            match bevy::tasks::block_on(tasks.remove(i).cancel()) {
-                Some(Ok(res)) => {
-                    for follow in &res.follows {
-                        users.insert(
-                            follow.did.as_str().into(),
-                            commands
-                                .spawn((
-                                    orb.collider.clone(),
-                                    avian2d::prelude::RigidBody::Dynamic,
-                                    Mesh2d(orb.mesh.clone_weak()),
-                                    MeshMaterial2d(mats.add(ColorMaterial::from(
-                                        server.load_with_settings(
-                                            &follow.avatar.clone().unwrap_or_default(),
-                                            |s: &mut bevy::image::ImageLoaderSettings| {
-                                                s.format = bevy::image::ImageFormatSetting::Format(
-                                                    ImageFormat::Jpeg,
-                                                )
-                                            },
-                                        ),
-                                    ))),
-                                    Transform::from_translation(placement.next()),
-                                ))
-                                .id(),
-                        );
-                    }
-                }
-                _ => {
-                    tasks.push(pool.spawn(async {
-                        bsky.agent
-                            .api
-                            .app
-                            .bsky
-                            .graph
-                            .get_follows(
-                                get_follows::ParametersData {
-                                    actor: bsky.actor.clone(),
-                                    cursor: None,
-                                    limit: Some(LIMIT.try_into().unwrap()),
-                                }
-                                .into(),
-                            )
-                            .await
-                    }));
-                }
+    if tasks.task.as_ref().is_some_and(|task| task.is_finished())
+        && let Some(Ok(res)) = bevy::tasks::block_on(tasks.task.take().unwrap().cancel())
+    {
+        for follow in &res.follows {
+            users.insert(
+                follow.did.as_str().into(),
+                commands
+                    .spawn((
+                        orb.collider.clone(),
+                        avian2d::prelude::RigidBody::Dynamic,
+                        Mesh2d(orb.mesh.clone_weak()),
+                        MeshMaterial2d(mats.add(ColorMaterial::from(server.load_with_settings(
+                            &follow.avatar.clone().unwrap_or_default(),
+                            |s: &mut bevy::image::ImageLoaderSettings| {
+                                s.format =
+                                    bevy::image::ImageFormatSetting::Format(ImageFormat::Jpeg)
+                            },
+                        )))),
+                        Transform::from_translation(placement.next()),
+                    ))
+                    .id(),
+            );
+        }
+        match &res.cursor {
+            Some(cursor) => tasks.cursor = Some(cursor.clone()),
+            None => {
+                commands.remove_resource::<Get>();
+                next.set(Game::Connect);
+                return;
             }
         }
     }
-    if tasks.is_empty() {
-        next.set(Game::Connect)
-    }
+    let cursor = tasks.cursor.clone();
+    tasks.task = Some(pool.spawn(async {
+        bsky.agent
+            .api
+            .app
+            .bsky
+            .graph
+            .get_follows(
+                get_follows::ParametersData {
+                    actor: bsky.actor.clone(),
+                    cursor,
+                    limit: Some(LIMIT.try_into().unwrap()),
+                }
+                .into(),
+            )
+            .await
+    }))
 }
 
 /*
