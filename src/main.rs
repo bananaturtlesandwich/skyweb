@@ -49,8 +49,8 @@ struct UserComp {
     shared: Vec<Entity>,
 }
 
-#[derive(Resource, Deref)]
-struct Users(Vec<User>);
+#[derive(Resource, Deref, DerefMut)]
+struct Users(std::collections::BTreeMap<String, Entity>);
 
 #[derive(States, Debug, Eq, PartialEq, Hash, Clone)]
 enum Game {

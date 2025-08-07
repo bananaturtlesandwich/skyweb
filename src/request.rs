@@ -8,12 +8,9 @@ type Session = atrium_api::agent::atp_agent::CredentialSession<
     atrium_xrpc_client::reqwest::ReqwestClient,
 >;
 
-pub struct Request;
-
-impl Plugin for Request {}
-
 struct Bsky {
     actor: atrium_api::types::string::AtIdentifier,
+    follows: usize,
     agent: Agent<Session>,
 }
 
@@ -24,21 +21,48 @@ fn bsky() -> &'static Bsky {
 }
 
 // todo: don't block on this
-pub fn login(mut next: ResMut<NextState<Game>>, mut session: Local<Option<Session>>) {
-    if bevy::tasks::block_on(async {
-        session
-            .get_or_insert_with(|| {
-                Session::new(
-                    atrium_xrpc_client::reqwest::ReqwestClient::new("https://bsky.social"),
-                    atrium_api::agent::atp_agent::store::MemorySessionStore::default(),
-                )
-            })
-            .login(HANDLE, PASSWORD)
-            .await
+pub fn login(
+    mut next: ResMut<NextState<Game>>,
+    mut session: Local<Option<Session>>,
+    mut agent: Local<Option<Agent<Session>>>,
+) {
+    let actor: atrium_api::types::string::AtIdentifier = std::env::args()
+        .nth(1)
+        .unwrap_or(HANDLE.into())
+        .parse()
+        .unwrap();
+    let agentref = match agent.as_ref() {
+        Some(agent) => agent,
+        None => {
+            if bevy::tasks::block_on(async {
+            session
+                .get_or_insert_with(|| {
+                    Session::new(
+                        atrium_xrpc_client::reqwest::ReqwestClient::new("https://bsky.social"),
+                        atrium_api::agent::atp_agent::store::MemorySessionStore::default(),
+                    )
+                })
+                .login(HANDLE, PASSWORD)
+                .await
+        })
+        .is_ok()
+            // always true by this point
+            && let Some(session) = session.take()
+            {
+                agent.insert(Agent::new(session));
+                agent.as_ref().unwrap()
+            } else {
+                return;
+            }
+        }
+    };
+    if let Ok(profile) = bevy::tasks::block_on(async {
+        agentref.api.app.bsky.actor.get_profile(atrium_api::app::bsky::actor::get_profile::ParametersData{
+            actor: actor.clone(),
+        }.into()).await
     })
-    .is_ok()
         // always true by this point
-        && let Some(session) = session.take()
+        && let Some(agent) = agent.take()
     {
         BSKY.get_or_init(|| Bsky {
             actor: std::env::args()
@@ -46,7 +70,8 @@ pub fn login(mut next: ResMut<NextState<Game>>, mut session: Local<Option<Sessio
                 .unwrap_or(HANDLE.into())
                 .parse()
                 .unwrap(),
-            agent: Agent::new(session),
+            follows: profile.follows_count.unwrap() as usize,
+            agent,
         });
         next.set(Game::Get);
     }
@@ -56,6 +81,41 @@ pub fn login(mut next: ResMut<NextState<Game>>, mut session: Local<Option<Sessio
 struct Get(
     Vec<bevy::tasks::Task<atrium_api::xrpc::Result<get_follows::Output, get_follows::Error>>>,
 );
+
+#[derive(Resource)]
+struct Placement {
+    radius: f32,
+    pos: Vec3,
+    layer: u8,
+    capacity: u8,
+    angle: f32,
+    counter: u8,
+}
+
+impl Placement {
+    fn next(&mut self) -> Vec3 {
+        let pos = self.pos;
+        self.counter += 1;
+        self.pos = Quat::from_rotation_z(self.angle) * self.pos;
+        if self.counter == self.capacity {
+            self.counter = 0;
+            self.layer += 1;
+            // circumference of layer circle is 2*radius*layer*pi
+            // orb capacity in each layer is circumference/radius = 2*layer*pi
+            self.capacity = (2.0 * std::f32::consts::PI * self.layer as f32).floor() as u8;
+            // angle to rotate by is 2*pi/capacity = 2*pi / 2*pi*layer = 1/layer
+            self.angle = 1.0 / self.layer as f32;
+            self.pos += Vec3::Y * self.radius * 2.5;
+        }
+        pos
+    }
+}
+
+#[derive(Resource)]
+struct Orb {
+    mesh: Handle<Mesh>,
+    collider: avian2d::prelude::Collider,
+}
 
 pub fn begin_get(mut commands: Commands) {
     let pool = bevy::tasks::IoTaskPool::get();
@@ -80,7 +140,56 @@ pub fn begin_get(mut commands: Commands) {
     commands.insert_resource(tasks);
 }
 
-pub fn get(commands: Commands, mut tasks: ResMut<Get>, mut next: ResMut<NextState<Game>>) {
+fn place(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, window: Single<&Window>) {
+    use avian2d::prelude::*;
+    let width = window.width();
+    let height = window.height();
+    // don't want our orbs escaping containment
+    commands.spawn((
+        Collider::half_space(Vec2::Y),
+        RigidBody::Static,
+        Transform::from_translation(Vec3::NEG_Y * height / 2.0),
+    ));
+    commands.spawn((
+        Collider::half_space(Vec2::NEG_Y),
+        RigidBody::Static,
+        Transform::from_translation(Vec3::Y * height / 2.0),
+    ));
+    commands.spawn((
+        Collider::half_space(Vec2::X),
+        RigidBody::Static,
+        Transform::from_translation(Vec3::NEG_X * width / 2.0),
+    ));
+    commands.spawn((
+        Collider::half_space(Vec2::NEG_X),
+        RigidBody::Static,
+        Transform::from_translation(Vec3::X * width / 2.0),
+    ));
+    let radius = (width * height / bsky().follows as f32 / std::f32::consts::PI).sqrt() / 2.0;
+    commands.insert_resource(Placement {
+        radius,
+        pos: Vec3::ZERO,
+        layer: 0,
+        capacity: 1,
+        angle: 0.0,
+        counter: 0,
+    });
+    commands.insert_resource(Orb {
+        mesh: meshes.add(Circle::new(radius)),
+        collider: Collider::circle(radius),
+    });
+}
+
+pub fn get(
+    mut commands: Commands,
+    orb: Res<Orb>,
+    server: Res<AssetServer>,
+    mut tasks: ResMut<Get>,
+    mut users: ResMut<Users>,
+    mut placement: ResMut<Placement>,
+    mut mats: ResMut<Assets<ColorMaterial>>,
+    mut next: ResMut<NextState<Game>>,
+) {
     let pool = bevy::tasks::IoTaskPool::get();
     let bsky = bsky();
     for i in (0..tasks.len()).rev() {
@@ -88,7 +197,27 @@ pub fn get(commands: Commands, mut tasks: ResMut<Get>, mut next: ResMut<NextStat
             match bevy::tasks::block_on(tasks.remove(i).cancel()) {
                 Some(Ok(res)) => {
                     for follow in &res.follows {
-                        // todo: spawn
+                        users.insert(
+                            follow.did.as_str().into(),
+                            commands
+                                .spawn((
+                                    orb.collider.clone(),
+                                    avian2d::prelude::RigidBody::Dynamic,
+                                    Mesh2d(orb.mesh.clone_weak()),
+                                    MeshMaterial2d(mats.add(ColorMaterial::from(
+                                        server.load_with_settings(
+                                            &follow.avatar.clone().unwrap_or_default(),
+                                            |s: &mut bevy::image::ImageLoaderSettings| {
+                                                s.format = bevy::image::ImageFormatSetting::Format(
+                                                    ImageFormat::Jpeg,
+                                                )
+                                            },
+                                        ),
+                                    ))),
+                                    Transform::from_translation(placement.next()),
+                                ))
+                                .id(),
+                        );
                     }
                 }
                 _ => {
