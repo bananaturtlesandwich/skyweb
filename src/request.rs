@@ -8,8 +8,24 @@ type Session = atrium_api::agent::atp_agent::CredentialSession<
     atrium_xrpc_client::reqwest::ReqwestClient,
 >;
 
+pub struct Request;
+
+impl Plugin for Request {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                login.run_if(in_state(Game::Login)),
+                get.run_if(in_state(Game::Get)),
+            ),
+        )
+        .add_systems(OnEnter(Game::Get), place);
+    }
+}
+
 struct Bsky {
     actor: atrium_api::types::string::AtIdentifier,
+    // todo: remove radius and just allow moving the camera
     follows: usize,
     agent: Agent<Session>,
 }
@@ -34,8 +50,7 @@ pub fn login(
     let agentref = match agent.as_ref() {
         Some(agent) => agent,
         None => {
-            if bevy::tasks::block_on(async {
-            session
+            if bevy::tasks::block_on(session
                 .get_or_insert_with(|| {
                     Session::new(
                         atrium_xrpc_client::reqwest::ReqwestClient::new("https://bsky.social"),
@@ -43,24 +58,23 @@ pub fn login(
                     )
                 })
                 .login(HANDLE, PASSWORD)
-                .await
-        })
+        )
         .is_ok()
             // always true by this point
             && let Some(session) = session.take()
             {
-                agent.insert(Agent::new(session));
+                let _ = agent.insert(Agent::new(session));
                 agent.as_ref().unwrap()
             } else {
                 return;
             }
         }
     };
-    if let Ok(profile) = bevy::tasks::block_on(async {
+    if let Ok(profile) = bevy::tasks::block_on(
         agentref.api.app.bsky.actor.get_profile(atrium_api::app::bsky::actor::get_profile::ParametersData{
             actor: actor.clone(),
-        }.into()).await
-    })
+        }.into())
+    )
         // always true by this point
         && let Some(agent) = agent.take()
     {
@@ -122,6 +136,7 @@ struct Orb {
 
 fn place(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, window: Single<&Window>) {
     use avian2d::prelude::*;
+    commands.spawn(Camera2d);
     let width = window.width();
     let height = window.height();
     // don't want our orbs escaping containment
@@ -160,7 +175,7 @@ fn place(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, window: Singl
     });
 }
 
-pub fn get(
+fn get(
     mut commands: Commands,
     orb: Res<Orb>,
     server: Res<AssetServer>,
@@ -205,22 +220,18 @@ pub fn get(
         }
     }
     let cursor = tasks.cursor.clone();
-    tasks.task = Some(pool.spawn(async {
-        bsky.agent
-            .api
-            .app
-            .bsky
-            .graph
-            .get_follows(
+    tasks.task = Some(
+        pool.spawn(
+            bsky.agent.api.app.bsky.graph.get_follows(
                 get_follows::ParametersData {
                     actor: bsky.actor.clone(),
                     cursor,
                     limit: Some(LIMIT.try_into().unwrap()),
                 }
                 .into(),
-            )
-            .await
-    }))
+            ),
+        ),
+    )
 }
 
 /*

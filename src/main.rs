@@ -3,13 +3,11 @@ use bevy::prelude::*;
 #[cfg(debug_assertions)]
 use bevy_dylib;
 
-mod game;
+mod attraction;
 mod request;
 
 fn main() -> AppExit {
     bevy::app::App::new()
-        .register_type::<Stats>()
-        .init_resource::<Stats>()
         .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
         .add_plugins((
             bevy_web_asset::WebAssetPlugin,
@@ -23,25 +21,16 @@ fn main() -> AppExit {
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
-            bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default(),
+            request::Request,
+            attraction::Attraction,
         ))
-        .add_systems(Startup, game::spawn)
-        .add_systems(Update, (game::attract, game::web, game::resize))
-        .add_systems(Update, request::login.run_if(in_state(Game::Login)))
-        .add_observer(game::link)
+        .init_state::<Game>()
         .run()
 }
 
-const LIMIT: u8 = 100;
+const LIMIT: u8 = 20;
 const HANDLE: &str = include_str!("handle.txt");
 const PASSWORD: &str = include_str!("password.txt");
-
-struct User {
-    name: String,
-    handle: String,
-    avatar: String,
-    shared: Vec<usize>,
-}
 
 #[derive(Component, Clone)]
 struct UserComp {
@@ -52,9 +41,11 @@ struct UserComp {
 #[derive(Resource, Deref, DerefMut)]
 struct Users(std::collections::BTreeMap<String, Entity>);
 
-#[derive(States, Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(States, Default, Debug, Eq, PartialEq, Hash, Clone)]
 enum Game {
+    #[allow(dead_code)]
     Ask,
+    #[default]
     Login,
     Get,
     Connect,
