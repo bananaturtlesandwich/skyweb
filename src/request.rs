@@ -16,7 +16,12 @@ impl Plugin for Request {
         .add_systems(
             OnEnter(Game::Connect),
             |tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>, users: Res<Users>| {
-                for user in users.clone().into_iter() {
+                let actor = bsky().profile.handle.as_str();
+                for user in users
+                    .clone()
+                    .into_iter()
+                    .filter(|(handle, _)| handle != actor)
+                {
                     tokio.spawn_background_task(|ctx| connect(ctx, user));
                 }
             },
@@ -92,7 +97,6 @@ struct Placement {
 
 impl Placement {
     fn next(&mut self) -> Vec3 {
-        let pos = self.pos;
         self.counter += 1;
         self.pos = Quat::from_rotation_z(self.angle) * self.pos;
         if self.counter == self.capacity {
@@ -105,7 +109,7 @@ impl Placement {
             self.angle = 1.0 / self.layer as f32;
             self.pos += Vec3::Y * self.radius * 2.5;
         }
-        pos
+        self.pos
     }
 }
 
@@ -168,43 +172,6 @@ fn place(
 
 async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     let bsky = bsky();
-    // lmao the number of scopes here is crazy
-    #[rustfmt::skip]
-    ctx.run_on_main_thread(|bevy| {
-        bevy.world.resource_scope(|world, mut users: Mut<Users>| {
-            world.resource_scope(|world, mut placement: Mut<Placement>| {
-                world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
-                    world.resource_scope(|world, orb: Mut<Orb>| {
-                        world.resource_scope(|world, server: Mut<AssetServer>| {
-                            let mut commands = world.commands();
-                                users.insert(
-                                    bsky.profile.handle.as_str().into(),
-                                    commands
-                                        .spawn((
-                                            orb.collider.clone(),
-                                            avian2d::prelude::RigidBody::Static,
-                                            Mesh2d(orb.mesh.clone_weak()),
-                                            MeshMaterial2d(mats.add(ColorMaterial::from(
-                                                server.load_with_settings(
-                                                    &bsky.profile.avatar.clone().unwrap_or_default(),
-                                                    |s: &mut bevy::image::ImageLoaderSettings| {
-                                                        s.format =
-                                                            bevy::image::ImageFormatSetting::Format(
-                                                                ImageFormat::Jpeg,
-                                                            )
-                                                    },
-                                                ),
-                                            ))),
-                                            Transform::from_translation(placement.next()),
-                                        ))
-                                        .id(),
-                                );
-                        })
-                    })
-                })
-            })
-        });
-    }).await;
     let mut cursor = None;
     loop {
         if let Ok(res) = bsky
@@ -223,9 +190,9 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
             )
             .await
         {
+            // lmao the number of scopes here is crazy
             #[rustfmt::skip]
             ctx.run_on_main_thread(|bevy| {
-                // round two for everyone else!
                 bevy.world.resource_scope(|world, mut users: Mut<Users>| {
                     world.resource_scope(|world, mut placement: Mut<Placement>| {
                         world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
@@ -268,6 +235,45 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
             cursor = res.data.cursor.clone();
         }
     }
+    // round two for you!
+    #[rustfmt::skip]
+    ctx.run_on_main_thread(|bevy| {
+        bevy.world.resource_scope(|world, mut users: Mut<Users>| {
+            world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
+                world.resource_scope(|world, orb: Mut<Orb>| {
+                    world.resource_scope(|world, server: Mut<AssetServer>| {
+                        let mut commands = world.commands();
+                        let shared = users.values().cloned().collect();
+                        users.insert(
+                            bsky.profile.handle.to_string(),
+                            commands
+                                .spawn((
+                                    orb.collider.clone(),
+                                    avian2d::prelude::RigidBody::Static,
+                                    User {
+                                        handle: bsky.profile.handle.to_string(),
+                                        shared
+                                    },
+                                    Mesh2d(orb.mesh.clone_weak()),
+                                    MeshMaterial2d(mats.add(ColorMaterial::from(
+                                        server.load_with_settings(
+                                            &bsky.profile.avatar.clone().unwrap_or_default(),
+                                            |s: &mut bevy::image::ImageLoaderSettings| {
+                                                s.format =
+                                                    bevy::image::ImageFormatSetting::Format(
+                                                        ImageFormat::Jpeg,
+                                                    )
+                                            },
+                                        ),
+                                    ))),
+                                ))
+                                .id(),
+                        );
+                    })
+                })
+            })
+        });
+    }).await;
     ctx.run_on_main_thread(|bevy| {
         bevy.world
             .resource_mut::<NextState<Game>>()
