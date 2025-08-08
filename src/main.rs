@@ -36,6 +36,19 @@ fn main() -> AppExit {
         .run()
 }
 
+static CLIENT: std::sync::OnceLock<
+    atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient>,
+> = std::sync::OnceLock::new();
+
+fn client()
+-> &'static atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient> {
+    CLIENT.get_or_init(|| {
+        atrium_api::client::AtpServiceClient::new(atrium_xrpc_client::reqwest::ReqwestClient::new(
+            "https://public.api.bsky.app",
+        ))
+    })
+}
+
 #[derive(Component)]
 struct User {
     handle: String,

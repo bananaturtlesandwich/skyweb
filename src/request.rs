@@ -15,8 +15,10 @@ impl Plugin for Request {
         .add_systems(OnEnter(Game::Get), place)
         .add_systems(
             OnEnter(Game::Connect),
-            |tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>, users: Res<Users>| {
-                let actor = bsky().profile.handle.as_str();
+            |tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>,
+             profile: Res<Profile>,
+             users: Res<Users>| {
+                let actor = profile.actor.as_ref();
                 for user in users
                     .clone()
                     .into_iter()
@@ -29,16 +31,11 @@ impl Plugin for Request {
     }
 }
 
-struct Bsky {
+#[derive(Resource, Deref)]
+struct Profile {
     actor: atrium_api::types::string::AtIdentifier,
+    #[deref]
     profile: atrium_api::app::bsky::actor::defs::ProfileViewDetailedData,
-    client: atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient>,
-}
-
-static BSKY: std::sync::OnceLock<Bsky> = std::sync::OnceLock::new();
-
-fn bsky() -> &'static Bsky {
-    BSKY.get().unwrap()
 }
 
 static LIMIT: std::sync::OnceLock<Option<atrium_api::types::LimitedNonZeroU8<100>>> =
@@ -71,12 +68,11 @@ async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
             )
             .await
         {
-            BSKY.get_or_init(|| Bsky {
-                actor,
-                profile: profile.data,
-                client,
-            });
             ctx.run_on_main_thread(|bevy| {
+                bevy.world.insert_resource(Profile {
+                    actor,
+                    profile: profile.data,
+                });
                 bevy.world.resource_mut::<NextState<Game>>().set(Game::Get)
             })
             .await;
@@ -123,6 +119,7 @@ fn place(
     mut commands: Commands,
     tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>,
     mut meshes: ResMut<Assets<Mesh>>,
+    profile: Res<Profile>,
     window: Single<&Window>,
 ) {
     use avian2d::prelude::*;
@@ -149,10 +146,9 @@ fn place(
         RigidBody::Static,
         Transform::from_translation(Vec3::X * width / 2.0),
     ));
-    let radius =
-        (width * height / bsky().profile.follows_count.unwrap() as f32 / std::f32::consts::PI)
-            .sqrt()
-            / 2.0;
+    let radius = (width * height / profile.follows_count.unwrap() as f32 / std::f32::consts::PI)
+        .sqrt()
+        / 2.0;
     commands.insert_resource(Placement {
         radius,
         pos: Vec3::ZERO,
@@ -166,22 +162,24 @@ fn place(
         collider: Collider::circle(radius),
     });
     commands.init_resource::<Users>();
-    tokio.spawn_background_task(get);
+    let actor = profile.actor.clone();
+    tokio.spawn_background_task(|ctx| get(ctx, actor));
 }
 
-async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
-    let bsky = bsky();
+async fn get(
+    mut ctx: bevy_tokio_tasks::TaskContext,
+    actor: atrium_api::types::string::AtIdentifier,
+) {
     let mut cursor = None;
     loop {
-        if let Ok(res) = bsky
-            .client
+        if let Ok(res) = client()
             .service
             .app
             .bsky
             .graph
             .get_follows(
                 get_follows::ParametersData {
-                    actor: bsky.actor.clone(),
+                    actor: actor.clone(),
                     cursor: cursor.clone(),
                     limit: limit(),
                 }
@@ -239,35 +237,37 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     ctx.run_on_main_thread(|bevy| {
         bevy.world.resource_scope(|world, mut users: Mut<Users>| {
             world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
-                world.resource_scope(|world, orb: Mut<Orb>| {
-                    world.resource_scope(|world, server: Mut<AssetServer>| {
-                        let mut commands = world.commands();
-                        let shared = users.values().cloned().collect();
-                        users.insert(
-                            bsky.profile.handle.to_string(),
-                            commands
-                                .spawn((
-                                    orb.collider.clone(),
-                                    avian2d::prelude::RigidBody::Static,
-                                    User {
-                                        handle: bsky.profile.handle.to_string(),
-                                        shared
-                                    },
-                                    Mesh2d(orb.mesh.clone_weak()),
-                                    MeshMaterial2d(mats.add(ColorMaterial::from(
-                                        server.load_with_settings(
-                                            &bsky.profile.avatar.clone().unwrap_or_default(),
-                                            |s: &mut bevy::image::ImageLoaderSettings| {
-                                                s.format =
-                                                    bevy::image::ImageFormatSetting::Format(
-                                                        ImageFormat::Jpeg,
-                                                    )
-                                            },
-                                        ),
-                                    ))),
-                                ))
-                                .id(),
-                        );
+                world.resource_scope(|world, profile: Mut<Profile>| {
+                    world.resource_scope(|world, orb: Mut<Orb>| {
+                        world.resource_scope(|world, server: Mut<AssetServer>| {
+                            let mut commands = world.commands();
+                            let shared = users.values().cloned().collect();
+                            users.insert(
+                                profile.handle.to_string(),
+                                commands
+                                    .spawn((
+                                        orb.collider.clone(),
+                                        avian2d::prelude::RigidBody::Static,
+                                        User {
+                                            handle: profile.handle.to_string(),
+                                            shared
+                                        },
+                                        Mesh2d(orb.mesh.clone_weak()),
+                                        MeshMaterial2d(mats.add(ColorMaterial::from(
+                                            server.load_with_settings(
+                                                &profile.avatar.clone().unwrap_or_default(),
+                                                |s: &mut bevy::image::ImageLoaderSettings| {
+                                                    s.format =
+                                                        bevy::image::ImageFormatSetting::Format(
+                                                            ImageFormat::Jpeg,
+                                                        )
+                                                },
+                                            ),
+                                        ))),
+                                    ))
+                                    .id(),
+                            );
+                        })
                     })
                 })
             })
@@ -283,7 +283,6 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
 
 async fn connect(mut ctx: bevy_tokio_tasks::TaskContext, (handle, ent): (String, Entity)) {
     let actor: atrium_api::types::string::AtIdentifier = handle.parse().unwrap();
-    let bsky = bsky();
     let mut cursor = None;
     ctx.run_on_main_thread(move |bevy| {
         bevy.world.entity_mut(ent.clone()).insert(User {
@@ -293,8 +292,7 @@ async fn connect(mut ctx: bevy_tokio_tasks::TaskContext, (handle, ent): (String,
     })
     .await;
     loop {
-        if let Ok(res) = bsky
-            .client
+        if let Ok(res) = client()
             .service
             .app
             .bsky
