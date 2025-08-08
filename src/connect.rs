@@ -5,14 +5,13 @@ pub struct Stuff;
 
 impl Plugin for Stuff {
     fn build(&self, app: &mut App) {
-        app.register_type::<Stats>()
-            .init_resource::<Stats>()
-            .add_plugins(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default())
+        app.register_type::<Config>()
+            .init_resource::<Config>()
             .add_systems(
                 Update,
                 (
                     attract.run_if(
-                        |stats: Res<Stats>, mut timer: Local<Option<Timer>>, time: Res<Time>| {
+                        |stats: Res<Config>, mut timer: Local<Option<Timer>>, time: Res<Time>| {
                             let timer = timer.get_or_insert_with(|| {
                                 Timer::from_seconds(stats.tick, TimerMode::Repeating)
                             });
@@ -32,28 +31,9 @@ impl Plugin for Stuff {
     }
 }
 
-#[derive(Resource, Reflect)]
-struct Stats {
-    attraction: f32,
-    repulsion: f32,
-    gravity: f32,
-    tick: f32,
-}
-
-impl Default for Stats {
-    fn default() -> Self {
-        Self {
-            attraction: 400.0,
-            repulsion: 300.0,
-            gravity: 0.5,
-            tick: 0.5,
-        }
-    }
-}
-
 fn attract(
     time: Res<Time>,
-    stats: Res<Stats>,
+    stats: Res<Config>,
     mut users: Query<(Entity, &User, &Transform, &mut LinearVelocity)>,
 ) {
     let mut combinations = users.iter_combinations_mut();
@@ -116,11 +96,7 @@ fn resize(
     }
 }
 
-fn link(
-    trigger: Trigger<Pointer<Pressed>>,
-    mut ctx: bevy_inspector_egui::bevy_egui::EguiContexts,
-    users: Query<&User>,
-) {
+fn link(trigger: Trigger<Pointer<Pressed>>, mut ctx: bevy_egui::EguiContexts, users: Query<&User>) {
     if ctx.ctx_mut().is_ok_and(|ctx| ctx.is_pointer_over_area()) {
         return;
     }

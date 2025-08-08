@@ -27,7 +27,6 @@ fn main() -> AppExit {
                 }),
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
-            bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
             bevy_tokio_tasks::TokioTasksPlugin::default(),
             bevy_simple_text_input::TextInputPlugin,
             ask::Stuff,
@@ -51,6 +50,25 @@ fn client()
             "https://public.api.bsky.app",
         ))
     })
+}
+
+#[derive(Resource, Reflect)]
+struct Config {
+    attraction: f32,
+    repulsion: f32,
+    gravity: f32,
+    tick: f32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            attraction: 400.0,
+            repulsion: 300.0,
+            gravity: 0.5,
+            tick: 0.5,
+        }
+    }
 }
 
 #[derive(Resource, Deref)]
