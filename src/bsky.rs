@@ -2,11 +2,11 @@ use super::*;
 
 use atrium_api::app::bsky::graph::get_follows;
 
-pub struct Request;
+pub struct Stuff;
 
-impl Plugin for Request {
+impl Plugin for Stuff {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(Game::Get), place).add_systems(
+        app.add_systems(OnEnter(Game::Get), spawn).add_systems(
             OnEnter(Game::Connect),
             |tokio: Res<bevy_tokio_tasks::TokioTasksRuntime>,
              profile: Res<Profile>,
@@ -65,7 +65,7 @@ struct Orb {
     collider: avian2d::prelude::Collider,
 }
 
-fn place(
+fn spawn(
     mut commands: Commands,
     tokio: Res<bevy_tokio_tasks::TokioTasksRuntime>,
     mut meshes: ResMut<Assets<Mesh>>,

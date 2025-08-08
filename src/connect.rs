@@ -1,9 +1,9 @@
 use super::*;
 use avian2d::prelude::*;
 
-pub struct Attraction;
+pub struct Stuff;
 
-impl Plugin for Attraction {
+impl Plugin for Stuff {
     fn build(&self, app: &mut App) {
         app.register_type::<Stats>()
             .init_resource::<Stats>()

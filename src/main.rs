@@ -4,8 +4,9 @@ use bevy::prelude::*;
 use bevy_dylib;
 
 mod ask;
-mod attraction;
-mod request;
+mod bsky;
+mod config;
+mod connect;
 
 fn main() -> AppExit {
     bevy::app::App::new()
@@ -21,17 +22,20 @@ fn main() -> AppExit {
                     ..default()
                 })
                 .set(AssetPlugin {
-                    file_path: "".into(),
+                    file_path: "./".into(),
                     ..default()
                 }),
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
             bevy_tokio_tasks::TokioTasksPlugin::default(),
-            ask::Ask,
-            request::Request,
-            attraction::Attraction,
+            bevy_simple_text_input::TextInputPlugin,
+            ask::Stuff,
+            bsky::Stuff,
+            connect::Stuff,
+            config::Stuff,
         ))
+        .init_resource::<Grape>()
         .init_state::<Game>()
         .run()
 }
@@ -47,6 +51,15 @@ fn client()
             "https://public.api.bsky.app",
         ))
     })
+}
+
+#[derive(Resource, Deref)]
+struct Grape(Handle<Font>);
+
+impl FromWorld for Grape {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.resource::<AssetServer>().load("grapesoda.ttf"))
+    }
 }
 
 #[derive(Resource, Deref)]

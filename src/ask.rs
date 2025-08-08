@@ -1,11 +1,10 @@
 use super::*;
 
-pub struct Ask;
+pub struct Stuff;
 
-impl Plugin for Ask {
+impl Plugin for Stuff {
     fn build(&self, app: &mut App) {
-        app.add_plugins(bevy_simple_text_input::TextInputPlugin)
-            .add_systems(OnEnter(Game::Ask), spawn)
+        app.add_systems(OnEnter(Game::Ask), spawn)
             .add_systems(Update, submit.run_if(in_state(Game::Ask)))
             .add_observer(report);
     }
@@ -14,9 +13,8 @@ impl Plugin for Ask {
 #[derive(Component)]
 struct Report;
 
-fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
+fn spawn(mut commands: Commands, font: Res<Grape>) {
     commands.spawn(Camera2d);
-    let font = assets.load("grapesoda.ttf");
     commands.spawn((
         StateScoped(Game::Ask),
         Node {
@@ -34,7 +32,7 @@ fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
                     font: font.clone_weak(),
                     font_size: 50.,
                     font_smoothing: bevy::text::FontSmoothing::None,
-                    line_height: bevy::text::LineHeight::RelativeToFont(1.),
+                    ..default()
                 },
                 TextColor(bevy::color::palettes::css::DEEP_SKY_BLUE.into()),
             ),
@@ -44,7 +42,7 @@ fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
                     font: font.clone_weak(),
                     font_size: 50.,
                     font_smoothing: bevy::text::FontSmoothing::None,
-                    line_height: bevy::text::LineHeight::RelativeToFont(1.),
+                    ..default()
                 }),
                 bevy_simple_text_input::TextInputTextColor(TextColor(
                     bevy::color::palettes::css::AZURE.into()
@@ -54,10 +52,10 @@ fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
                 Report,
                 Text::new(""),
                 TextFont {
-                    font,
+                    font: font.clone_weak(),
                     font_size: 50.,
                     font_smoothing: bevy::text::FontSmoothing::None,
-                    line_height: bevy::text::LineHeight::RelativeToFont(1.),
+                    ..default()
                 },
                 TextColor(bevy::color::palettes::css::RED.into()),
             ),
