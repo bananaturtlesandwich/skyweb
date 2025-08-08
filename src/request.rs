@@ -1,12 +1,6 @@
 use super::*;
 
-use atrium_api::agent::Agent;
 use atrium_api::app::bsky::graph::get_follows;
-
-type Session = atrium_api::agent::atp_agent::CredentialSession<
-    atrium_api::agent::atp_agent::store::MemorySessionStore,
-    atrium_xrpc_client::reqwest::ReqwestClient,
->;
 
 pub struct Request;
 
@@ -33,7 +27,7 @@ impl Plugin for Request {
 struct Bsky {
     actor: atrium_api::types::string::AtIdentifier,
     profile: atrium_api::app::bsky::actor::defs::ProfileViewDetailedData,
-    agent: Agent<Session>,
+    client: atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient>,
 }
 
 static BSKY: std::sync::OnceLock<Bsky> = std::sync::OnceLock::new();
@@ -43,24 +37,17 @@ fn bsky() -> &'static Bsky {
 }
 
 async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
-    let session = Session::new(
-        atrium_xrpc_client::reqwest::ReqwestClient::new("https://bsky.social"),
-        atrium_api::agent::atp_agent::store::MemorySessionStore::default(),
-    );
     let actor: atrium_api::types::string::AtIdentifier = std::env::args()
         .nth(1)
         .unwrap_or(HANDLE.into())
         .parse()
         .unwrap();
+    let client = atrium_api::client::AtpServiceClient::new(
+        atrium_xrpc_client::reqwest::ReqwestClient::new("https://public.api.bsky.app"),
+    );
     loop {
-        if session.login(HANDLE, PASSWORD).await.is_ok() {
-            break;
-        }
-    }
-    let agent = Agent::new(session);
-    loop {
-        if let Ok(profile) = agent
-            .api
+        if let Ok(profile) = client
+            .service
             .app
             .bsky
             .actor
@@ -79,7 +66,7 @@ async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
                     .parse()
                     .unwrap(),
                 profile: profile.data,
-                agent,
+                client,
             });
             ctx.run_on_main_thread(|bevy| {
                 bevy.world.resource_mut::<NextState<Game>>().set(Game::Get)
@@ -218,8 +205,8 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     let mut cursor = None;
     loop {
         if let Ok(res) = bsky
-            .agent
-            .api
+            .client
+            .service
             .app
             .bsky
             .graph
@@ -299,8 +286,8 @@ async fn connect(mut ctx: bevy_tokio_tasks::TaskContext, (handle, ent): (String,
     .await;
     loop {
         if let Ok(res) = bsky
-            .agent
-            .api
+            .client
+            .service
             .app
             .bsky
             .graph
