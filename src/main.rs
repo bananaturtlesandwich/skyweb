@@ -25,17 +25,19 @@ fn main() -> AppExit {
                     file_path: "./".into(),
                     ..default()
                 }),
+            bevy_egui::EguiPlugin::default(),
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
             bevy_tokio_tasks::TokioTasksPlugin::default(),
-            bevy_simple_text_input::TextInputPlugin,
             ask::Stuff,
             bsky::Stuff,
             connect::Stuff,
             config::Stuff,
         ))
-        .init_resource::<Grape>()
         .init_state::<Game>()
+        .add_systems(Startup, |mut commands: Commands| {
+            commands.spawn(Camera2d);
+        })
         .run()
 }
 
@@ -68,15 +70,6 @@ impl Default for Config {
             gravity: 0.5,
             tick: 0.5,
         }
-    }
-}
-
-#[derive(Resource, Deref)]
-struct Grape(Handle<Font>);
-
-impl FromWorld for Grape {
-    fn from_world(world: &mut World) -> Self {
-        Self(world.resource::<AssetServer>().load("grapesoda.ttf"))
     }
 }
 

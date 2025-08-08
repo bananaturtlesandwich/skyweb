@@ -4,88 +4,73 @@ pub struct Stuff;
 
 impl Plugin for Stuff {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(Game::Ask), spawn)
-            .add_systems(Update, submit.run_if(in_state(Game::Ask)))
-            .add_observer(report);
+        app.init_resource::<Ask>().add_systems(
+            bevy_egui::EguiPrimaryContextPass,
+            ask.chain().run_if(in_state(Game::Ask)),
+        );
     }
 }
 
-#[derive(Component)]
-struct Report;
-
-fn spawn(mut commands: Commands, font: Res<Grape>) {
-    commands.spawn(Camera2d);
-    commands.spawn((
-        StateScoped(Game::Ask),
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            flex_direction: FlexDirection::Column,
-            ..default()
-        },
-        children![
-            (
-                Text::new("enter your bsky handle:"),
-                TextFont {
-                    font: font.clone_weak(),
-                    font_size: 50.,
-                    font_smoothing: bevy::text::FontSmoothing::None,
-                    ..default()
-                },
-                TextColor(bevy::color::palettes::css::DEEP_SKY_BLUE.into()),
-            ),
-            (
-                bevy_simple_text_input::TextInput,
-                bevy_simple_text_input::TextInputTextFont(TextFont {
-                    font: font.clone_weak(),
-                    font_size: 50.,
-                    font_smoothing: bevy::text::FontSmoothing::None,
-                    ..default()
-                }),
-                bevy_simple_text_input::TextInputTextColor(TextColor(
-                    bevy::color::palettes::css::AZURE.into()
-                )),
-            ),
-            (
-                Report,
-                Text::new(""),
-                TextFont {
-                    font: font.clone_weak(),
-                    font_size: 50.,
-                    font_smoothing: bevy::text::FontSmoothing::None,
-                    ..default()
-                },
-                TextColor(bevy::color::palettes::css::RED.into()),
-            ),
-        ],
-    ));
-}
-
-fn submit(
-    mut events: EventReader<bevy_simple_text_input::TextInputSubmitEvent>,
+fn ask(
+    mut ctx: bevy_egui::EguiContexts,
     tokio: Res<bevy_tokio_tasks::TokioTasksRuntime>,
+    mut ask: ResMut<Ask>,
 ) {
-    for event in events.read() {
-        let handle = event.value.clone();
-        tokio.spawn_background_task(|ctx| check(ctx, handle));
-    }
+    use bevy_egui::egui;
+    let Ok(ctx) = ctx.ctx_mut() else { return };
+    egui::CentralPanel::default().show(ctx, |ui| {
+        ui.vertical_centered_justified(|ui| {
+            let size = &mut ui
+                .style_mut()
+                .text_styles
+                .get_mut(&egui::TextStyle::Body)
+                .unwrap()
+                .size;
+            *size *= 4.0;
+            let size = *size;
+            let width = &mut ui.spacing_mut().text_edit_width;
+            *width *= 2.0;
+            let width = *width;
+            ui.allocate_space(egui::Vec2::new(0.0, (ui.available_height() - size) / 2.0));
+            ui.horizontal(|ui| {
+                ui.add_space((ui.available_width() - width) / 2.0);
+                if ui
+                    .add(
+                        egui::TextEdit::singleline(&mut ask.buf)
+                            .hint_text("enter your bsky handle"),
+                    )
+                    .lost_focus()
+                    && ui.input(|input| input.key_pressed(egui::Key::Enter))
+                    || ui.button("go").clicked()
+                {
+                    let buf = ask.buf.clone();
+                    tokio.spawn_background_task(|ctx| check(ctx, buf));
+                }
+            });
+            if let Some(err) = ask.err.as_ref() {
+                ui.colored_label(egui::Color32::RED, err);
+            }
+        })
+    });
 }
 
-#[derive(Event)]
-struct Bad(String);
-
-fn report(trigger: Trigger<Bad>, mut report: Single<&mut Text, With<Report>>) {
-    report.0 = trigger.event().0.clone();
+#[derive(Resource, Default)]
+struct Ask {
+    buf: String,
+    err: Option<String>,
 }
 
 async fn check(mut ctx: bevy_tokio_tasks::TaskContext, handle: String) {
-    let actor: atrium_api::types::string::AtIdentifier = match handle.parse() {
+    let actor: atrium_api::types::string::AtIdentifier = match handle
+        .parse()
+        .or_else(|_| (handle + ".bsky.social").parse())
+    {
         Ok(actor) => actor,
         Err(_) => {
-            ctx.run_on_main_thread(|bevy| bevy.world.trigger(Bad("invalid handle".into())))
-                .await;
+            ctx.run_on_main_thread(|bevy| {
+                bevy.world.resource_mut::<Ask>().err = Some("invalid handle".into())
+            })
+            .await;
             return;
         }
     };
@@ -114,8 +99,10 @@ async fn check(mut ctx: bevy_tokio_tasks::TaskContext, handle: String) {
             .await;
         }
         Err(e) => {
-            ctx.run_on_main_thread(move |bevy| bevy.world.trigger(Bad(e.to_string())))
-                .await
+            ctx.run_on_main_thread(move |bevy| {
+                bevy.world.resource_mut::<Ask>().err = Some(e.to_string())
+            })
+            .await
         }
     }
 }

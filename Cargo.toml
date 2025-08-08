@@ -25,7 +25,6 @@ bevy_dylib = "0.16"
 bevy_web_asset = { version = "0.11", default-features = false } # no redirection needed
 bevy_egui = "0.36"
 bevy-tokio-tasks = "0.16"
-bevy_simple_text_input = "0.11"
 avian2d = "0.3"
 webbrowser = "1.0"
 

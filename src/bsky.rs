@@ -98,7 +98,7 @@ fn spawn(
     ));
     let radius = (width * height / profile.follows_count.unwrap() as f32 / std::f32::consts::PI)
         .sqrt()
-        / 2.0;
+        / 2.5;
     commands.insert_resource(Placement {
         radius,
         pos: Vec3::ZERO,
