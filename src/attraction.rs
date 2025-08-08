@@ -46,7 +46,7 @@ impl Default for Stats {
             attraction: 400.0,
             repulsion: 300.0,
             gravity: 0.5,
-            tick: 2.5,
+            tick: 0.5,
         }
     }
 }
