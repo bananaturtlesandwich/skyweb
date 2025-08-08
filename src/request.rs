@@ -165,9 +165,9 @@ fn place(
 
 async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
     let bsky = bsky();
+    // lmao the number of scopes here is crazy
     #[rustfmt::skip]
     ctx.run_on_main_thread(|bevy| {
-        // lmao the number of scopes here is crazy
         bevy.world.resource_scope(|world, mut users: Mut<Users>| {
             world.resource_scope(|world, mut placement: Mut<Placement>| {
                 world.resource_scope(|world, mut mats: Mut<Assets<ColorMaterial>>| {
@@ -179,7 +179,7 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
                                     commands
                                         .spawn((
                                             orb.collider.clone(),
-                                            avian2d::prelude::RigidBody::Dynamic,
+                                            avian2d::prelude::RigidBody::Static,
                                             Mesh2d(orb.mesh.clone_weak()),
                                             MeshMaterial2d(mats.add(ColorMaterial::from(
                                                 server.load_with_settings(

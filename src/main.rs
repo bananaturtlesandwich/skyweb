@@ -11,13 +11,18 @@ fn main() -> AppExit {
         .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
         .add_plugins((
             bevy_web_asset::WebAssetPlugin,
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: "skyweb".into(),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "skyweb".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(AssetPlugin {
+                    file_path: "".into(),
                     ..default()
                 }),
-                ..default()
-            }),
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
