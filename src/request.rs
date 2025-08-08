@@ -126,7 +126,6 @@ fn place(
     window: Single<&Window>,
 ) {
     use avian2d::prelude::*;
-    commands.spawn(Camera2d);
     let width = window.width();
     let height = window.height();
     // don't want our orbs escaping containment

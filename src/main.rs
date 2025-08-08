@@ -3,6 +3,7 @@ use bevy::prelude::*;
 #[cfg(debug_assertions)]
 use bevy_dylib;
 
+mod ask;
 mod attraction;
 mod request;
 
@@ -27,6 +28,7 @@ fn main() -> AppExit {
             avian2d::picking::PhysicsPickingPlugin,
             bevy_inspector_egui::bevy_egui::EguiPlugin::default(),
             bevy_tokio_tasks::TokioTasksPlugin::default(),
+            ask::Ask,
             request::Request,
             attraction::Attraction,
         ))
@@ -44,10 +46,10 @@ struct User {
 struct Users(std::collections::BTreeMap<String, Entity>);
 
 #[derive(States, Default, Debug, Eq, PartialEq, Hash, Clone)]
+#[states(scoped_entities)]
 enum Game {
-    #[allow(dead_code)]
-    Ask,
     #[default]
+    Ask,
     Login,
     Get,
     Connect,
