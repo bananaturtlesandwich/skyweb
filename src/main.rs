@@ -49,6 +49,13 @@ fn client()
     })
 }
 
+#[derive(Resource, Deref)]
+struct Profile {
+    actor: atrium_api::types::string::AtIdentifier,
+    #[deref]
+    profile: atrium_api::app::bsky::actor::defs::ProfileViewDetailedData,
+}
+
 #[derive(Component)]
 struct User {
     handle: String,
@@ -63,7 +70,6 @@ struct Users(std::collections::BTreeMap<String, Entity>);
 enum Game {
     #[default]
     Ask,
-    Login,
     Get,
     Connect,
 }

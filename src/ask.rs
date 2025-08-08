@@ -38,9 +38,46 @@ fn spawn(mut commands: Commands, assets: Res<AssetServer>) {
 
 fn submit(
     mut events: EventReader<bevy_simple_text_input::TextInputSubmitEvent>,
-    mut next: ResMut<NextState<Game>>,
+    tokio: Res<bevy_tokio_tasks::TokioTasksRuntime>,
 ) {
     for event in events.read() {
-        next.set(Game::Login)
+        let handle = event.value.clone();
+        tokio.spawn_background_task(|ctx| check(ctx, handle));
+    }
+}
+
+async fn check(mut ctx: bevy_tokio_tasks::TaskContext, handle: String) {
+    let actor: atrium_api::types::string::AtIdentifier = match handle.parse() {
+        Ok(actor) => actor,
+        Err(_) => todo!(),
+    };
+    let client = client();
+    loop {
+        match client
+            .service
+            .app
+            .bsky
+            .actor
+            .get_profile(
+                atrium_api::app::bsky::actor::get_profile::ParametersData {
+                    actor: actor.clone(),
+                }
+                .into(),
+            )
+            .await
+        {
+            Ok(profile) => {
+                ctx.run_on_main_thread(|bevy| {
+                    bevy.world.insert_resource(Profile {
+                        actor,
+                        profile: profile.data,
+                    });
+                    bevy.world.resource_mut::<NextState<Game>>().set(Game::Get)
+                })
+                .await;
+                break;
+            }
+            Err(_) => todo!(),
+        }
     }
 }

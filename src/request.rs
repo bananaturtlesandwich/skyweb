@@ -6,16 +6,9 @@ pub struct Request;
 
 impl Plugin for Request {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            OnEnter(Game::Login),
-            |tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>| {
-                tokio.spawn_background_task(login);
-            },
-        )
-        .add_systems(OnEnter(Game::Get), place)
-        .add_systems(
+        app.add_systems(OnEnter(Game::Get), place).add_systems(
             OnEnter(Game::Connect),
-            |tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>,
+            |tokio: Res<bevy_tokio_tasks::TokioTasksRuntime>,
              profile: Res<Profile>,
              users: Res<Users>| {
                 let actor = profile.actor.as_ref();
@@ -31,54 +24,11 @@ impl Plugin for Request {
     }
 }
 
-#[derive(Resource, Deref)]
-struct Profile {
-    actor: atrium_api::types::string::AtIdentifier,
-    #[deref]
-    profile: atrium_api::app::bsky::actor::defs::ProfileViewDetailedData,
-}
-
 static LIMIT: std::sync::OnceLock<Option<atrium_api::types::LimitedNonZeroU8<100>>> =
     std::sync::OnceLock::new();
 
 fn limit() -> Option<atrium_api::types::LimitedNonZeroU8<100>> {
     *LIMIT.get_or_init(|| Some(10.try_into().unwrap()))
-}
-
-async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
-    let actor: atrium_api::types::string::AtIdentifier = std::env::args()
-        .nth(1)
-        .unwrap_or("spuds.casa".into())
-        .parse()
-        .unwrap();
-    let client = atrium_api::client::AtpServiceClient::new(
-        atrium_xrpc_client::reqwest::ReqwestClient::new("https://public.api.bsky.app"),
-    );
-    loop {
-        if let Ok(profile) = client
-            .service
-            .app
-            .bsky
-            .actor
-            .get_profile(
-                atrium_api::app::bsky::actor::get_profile::ParametersData {
-                    actor: actor.clone(),
-                }
-                .into(),
-            )
-            .await
-        {
-            ctx.run_on_main_thread(|bevy| {
-                bevy.world.insert_resource(Profile {
-                    actor,
-                    profile: profile.data,
-                });
-                bevy.world.resource_mut::<NextState<Game>>().set(Game::Get)
-            })
-            .await;
-            break;
-        }
-    }
 }
 
 #[derive(Resource)]
@@ -117,7 +67,7 @@ struct Orb {
 
 fn place(
     mut commands: Commands,
-    tokio: ResMut<bevy_tokio_tasks::TokioTasksRuntime>,
+    tokio: Res<bevy_tokio_tasks::TokioTasksRuntime>,
     mut meshes: ResMut<Assets<Mesh>>,
     profile: Res<Profile>,
     window: Single<&Window>,
@@ -171,8 +121,9 @@ async fn get(
     actor: atrium_api::types::string::AtIdentifier,
 ) {
     let mut cursor = None;
+    let client = client();
     loop {
-        if let Ok(res) = client()
+        if let Ok(res) = client
             .service
             .app
             .bsky
@@ -291,8 +242,9 @@ async fn connect(mut ctx: bevy_tokio_tasks::TaskContext, (handle, ent): (String,
         });
     })
     .await;
+    let client = client();
     loop {
-        if let Ok(res) = client()
+        if let Ok(res) = client
             .service
             .app
             .bsky
