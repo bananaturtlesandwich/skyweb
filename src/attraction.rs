@@ -10,7 +10,23 @@ impl Plugin for Attraction {
             .add_plugins(bevy_inspector_egui::quick::ResourceInspectorPlugin::<Stats>::default())
             .add_systems(
                 Update,
-                (attract, web, resize).run_if(in_state(Game::Connect)),
+                (
+                    attract.run_if(
+                        |stats: Res<Stats>, mut timer: Local<Option<Timer>>, time: Res<Time>| {
+                            let timer = timer.get_or_insert_with(|| {
+                                Timer::from_seconds(stats.tick, TimerMode::Repeating)
+                            });
+                            if stats.is_changed() {
+                                timer.set_duration(std::time::Duration::from_secs_f32(stats.tick));
+                            }
+                            timer.tick(time.delta());
+                            timer.just_finished()
+                        },
+                    ),
+                    web,
+                    resize,
+                )
+                    .run_if(in_state(Game::Connect)),
             )
             .add_observer(link);
     }
@@ -21,14 +37,16 @@ struct Stats {
     attraction: f32,
     repulsion: f32,
     gravity: f32,
+    tick: f32,
 }
 
 impl Default for Stats {
     fn default() -> Self {
         Self {
-            attraction: 100.0,
-            repulsion: 50.0,
-            gravity: 0.1,
+            attraction: 400.0,
+            repulsion: 300.0,
+            gravity: 0.5,
+            tick: 2.5,
         }
     }
 }
