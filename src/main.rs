@@ -34,10 +34,6 @@ fn main() -> AppExit {
         .run()
 }
 
-const LIMIT: u8 = 10;
-const HANDLE: &str = include_str!("handle.txt");
-const PASSWORD: &str = include_str!("password.txt");
-
 #[derive(Component)]
 struct User {
     handle: String,

@@ -36,10 +36,17 @@ fn bsky() -> &'static Bsky {
     BSKY.get().unwrap()
 }
 
+static LIMIT: std::sync::OnceLock<Option<atrium_api::types::LimitedNonZeroU8<100>>> =
+    std::sync::OnceLock::new();
+
+fn limit() -> Option<atrium_api::types::LimitedNonZeroU8<100>> {
+    *LIMIT.get_or_init(|| Some(10.try_into().unwrap()))
+}
+
 async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
     let actor: atrium_api::types::string::AtIdentifier = std::env::args()
         .nth(1)
-        .unwrap_or(HANDLE.into())
+        .unwrap_or("spuds.casa".into())
         .parse()
         .unwrap();
     let client = atrium_api::client::AtpServiceClient::new(
@@ -60,11 +67,7 @@ async fn login(mut ctx: bevy_tokio_tasks::TaskContext) {
             .await
         {
             BSKY.get_or_init(|| Bsky {
-                actor: std::env::args()
-                    .nth(1)
-                    .unwrap_or(HANDLE.into())
-                    .parse()
-                    .unwrap(),
+                actor,
                 profile: profile.data,
                 client,
             });
@@ -214,7 +217,7 @@ async fn get(mut ctx: bevy_tokio_tasks::TaskContext) {
                 get_follows::ParametersData {
                     actor: bsky.actor.clone(),
                     cursor: cursor.clone(),
-                    limit: Some(LIMIT.try_into().unwrap()),
+                    limit: limit(),
                 }
                 .into(),
             )
@@ -295,7 +298,7 @@ async fn connect(mut ctx: bevy_tokio_tasks::TaskContext, (handle, ent): (String,
                 get_follows::ParametersData {
                     actor: actor.clone(),
                     cursor: cursor.clone(),
-                    limit: Some(LIMIT.try_into().unwrap()),
+                    limit: limit(),
                 }
                 .into(),
             )
