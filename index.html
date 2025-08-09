@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <title>skyweb</title>
+        <style>body, html {
+    height: 100%;
+}
+
+body {
+    background-color: lightgray;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game-container {
+    width: 800px;
+    height: 600px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.lds-dual-ring {
+    display: inline-block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin: auto;
+    width: 80px;
+    height: 80px;
+}
+
+.lds-dual-ring:after {
+    content: " ";
+    display: block;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    border-color: #fff transparent #fff transparent;
+    animation: lds-dual-ring 1.2s linear infinite;
+}
+
+@keyframes lds-dual-ring {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+#bevy {
+    z-index: 2;
+}
+</style>
+    <link rel="modulepreload" href="/skyweb-2fb4312158eae815.js" crossorigin="anonymous" integrity="sha384-Qs8WRp3fXgF2R5IT5Ej6X3FPmKM6Vc+R8Xehz2ALtUonZiX00c6m7K2fwhkpdCUa"><link rel="preload" href="/skyweb-2fb4312158eae815_bg.wasm" crossorigin="anonymous" integrity="sha384-p3BKie3PIHMnKPsX22j6az6Spx/8lSfcpObyXYHSCC+7VZZ3Q7sXMT/Zh13qnAJM" as="fetch" type="application/wasm"></head>
+    <body>
+        <div class="game-container">
+            <div class="lds-dual-ring"></div>
+            <canvas id="bevy">
+                enable javascript :p
+            </canvas>
+        </div>
+    
+<script type="module">
+import init, * as bindings from '/skyweb-2fb4312158eae815.js';
+const wasm = await init({ module_or_path: '/skyweb-2fb4312158eae815_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script></body>
+</html>
