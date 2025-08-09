@@ -81,20 +81,20 @@ struct Ask {
 }
 
 fn check(mut commands: Commands, mut ask: ResMut<Ask>, mut next: ResMut<NextState<Game>>) {
-    let Some(task) = ask.task.as_mut() else {
-        return;
-    };
-    match bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_fn(|cx| {
-        task.poll(cx)
-    })) {
-        Ok(profile) => {
+    match ask
+        .task
+        .as_mut()
+        .and_then(|task| bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_once(task)))
+    {
+        Some(Ok(profile)) => {
             commands.insert_resource(Profile {
                 actor: profile.handle.parse().unwrap(),
                 profile: profile.data,
             });
             next.set(Game::Get)
         }
-        Err(e) => ask.err = Some(e.to_string()),
+        Some(Err(e)) => ask.err = Some(e.to_string()),
+        None => return,
     }
     ask.task = None;
 }

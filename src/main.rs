@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use bevy::tasks::futures_lite::FutureExt;
 #[allow(unused_imports, clippy::single_component_path_imports)]
 #[cfg(debug_assertions)]
 use bevy_dylib;
@@ -8,13 +7,6 @@ mod ask;
 mod bsky;
 mod config;
 mod connect;
-
-type Task = bevy::tasks::Task<
-    atrium_api::xrpc::Result<
-        atrium_api::app::bsky::graph::get_follows::Output,
-        atrium_api::app::bsky::graph::get_follows::Error,
-    >,
->;
 
 fn main() -> AppExit {
     bevy::app::App::new()

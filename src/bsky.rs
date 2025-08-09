@@ -64,9 +64,8 @@ struct Follow {
     task: bevy::tasks::Task<atrium_api::xrpc::Result<get_follows::Output, get_follows::Error>>,
 }
 
-// todo: do this in an entity-facing way
 #[derive(Resource, Deref, DerefMut)]
-struct Follows(Vec<Follow>);
+struct You(Follow);
 
 fn spawn(
     mut commands: Commands,
@@ -115,7 +114,7 @@ fn spawn(
     });
     commands.init_resource::<Users>();
     let actor = profile.actor.clone();
-    commands.insert_resource(Follows(vec![Follow {
+    commands.insert_resource(You(Follow {
         actor: actor.clone(),
         cursor: None,
         task: bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
@@ -128,29 +127,21 @@ fn spawn(
                 .into(),
             ),
         )),
-    }]));
+    }));
 }
 
 fn get(
     mut commands: Commands,
     orb: Res<Orb>,
     server: Res<AssetServer>,
-    mut follows: ResMut<Follows>,
+    mut you: ResMut<You>,
     mut users: ResMut<Users>,
     mut placement: ResMut<Placement>,
     mut mats: ResMut<Assets<ColorMaterial>>,
     mut next: ResMut<NextState<Game>>,
 ) {
-    let Follow {
-        actor,
-        cursor,
-        task,
-        ..
-    } = &mut follows[0];
-    let data = match bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_fn(|cx| {
-        task.poll(cx)
-    })) {
-        Ok(atrium_api::types::Object { data, .. }) => {
+    let data = match bevy::tasks::block_on(bevy::tasks::poll_once(&mut you.task)) {
+        Some(Ok(atrium_api::types::Object { data, .. })) => {
             let pool = bevy::tasks::IoTaskPool::get();
             let client = client();
             for follow in &data.follows {
@@ -196,13 +187,13 @@ fn get(
                 );
             }
             if data.cursor.is_some() {
-                *cursor = data.cursor;
+                you.cursor = data.cursor;
                 // duplicated code :/
-                *task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+                you.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
                     client.service.app.bsky.graph.get_follows(
                         get_follows::ParametersData {
-                            actor: actor.clone(),
-                            cursor: cursor.clone(),
+                            actor: you.actor.clone(),
+                            cursor: you.cursor.clone(),
                             limit: limit(),
                         }
                         .into(),
@@ -212,13 +203,13 @@ fn get(
             }
             data
         }
-        Err(_) => {
+        Some(Err(_)) => {
             // duplicated code :/
-            *task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+            you.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
                 client().service.app.bsky.graph.get_follows(
                     get_follows::ParametersData {
-                        actor: actor.clone(),
-                        cursor: cursor.clone(),
+                        actor: you.actor.clone(),
+                        cursor: you.cursor.clone(),
                         limit: limit(),
                     }
                     .into(),
@@ -226,6 +217,7 @@ fn get(
             ));
             return;
         }
+        None => return,
     };
     let shared = users.values().cloned().collect();
     users.insert(
@@ -257,10 +249,8 @@ fn connect(
     mut user: Query<(Entity, &mut User, &mut Follow)>,
 ) {
     user.par_iter_mut().for_each(|(ent, mut user, mut follow)| {
-        match bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_fn(|cx| {
-            follow.task.poll(cx)
-        })) {
-            Ok(atrium_api::types::Object { data, .. }) => {
+        match bevy::tasks::block_on(bevy::tasks::poll_once(&mut follow.task)) {
+            Some(Ok(atrium_api::types::Object { data, .. })) => {
                 for follow in data.follows {
                     if let Some(ent) = users.get(follow.handle.as_str()) {
                         user.shared.push(ent.clone());
@@ -285,7 +275,7 @@ fn connect(
                     commands.entity(ent).remove::<Follow>();
                 });
             }
-            Err(_) => {
+            Some(Err(_)) => {
                 // duplicated code :/
                 follow.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
                     client().service.app.bsky.graph.get_follows(
@@ -298,6 +288,7 @@ fn connect(
                     ),
                 ));
             }
+            None => {}
         }
     });
 }
