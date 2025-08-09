@@ -20,14 +20,17 @@ bevy = { version = "0.16", default-features = false , features = [
     "bevy_text",
     "bevy_ui",
     "jpeg",
+    "webgl2",
     "multi_threaded",
 ]}
-bevy_dylib = "0.16"
 bevy_web_asset = { version = "0.11", default-features = false } # no redirection needed
 bevy_egui = "0.36"
 bevy-tokio-tasks = "0.16"
 avian2d = "0.3"
 webbrowser = "1.0"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+bevy_dylib = "0.16"
 
 [profile.dev.package."*"]
 opt-level = 3

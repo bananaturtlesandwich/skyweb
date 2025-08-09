@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 #[allow(unused_imports, clippy::single_component_path_imports)]
+#[cfg(not(target_family = "wasm"))]
 #[cfg(debug_assertions)]
 use bevy_dylib;
 
@@ -17,12 +18,16 @@ fn main() -> AppExit {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "skyweb".into(),
+                        canvas: Some("#bevy".into()),
+                        fit_canvas_to_parent: true,
+                        prevent_default_event_handling: false,
                         ..default()
                     }),
                     ..default()
                 })
                 .set(AssetPlugin {
                     file_path: "./".into(),
+                    meta_check: bevy::asset::AssetMetaCheck::Never,
                     ..default()
                 }),
             bevy_egui::EguiPlugin::default(),
