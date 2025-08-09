@@ -6,44 +6,13 @@ pub struct Stuff;
 
 impl Plugin for Stuff {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(Game::Get), spawn)
-            .add_systems(
-                Update,
-                (
-                    get.run_if(in_state(Game::Get)),
-                    connect.run_if(in_state(Game::Connect)),
-                ),
-            )
-            .add_systems(
-                OnEnter(Game::Connect),
-                |mut follows: ResMut<Follows>, profile: Res<Profile>, users: Res<Users>| {
-                    let pool = bevy::tasks::IoTaskPool::get();
-                    let client = client();
-                    **follows = users
-                        .iter()
-                        .filter(|(handle, _)| handle != &profile.actor.as_ref())
-                        .map(|(handle, ent)| {
-                            let actor: atrium_api::types::string::AtIdentifier =
-                                handle.parse().unwrap();
-                            Follow {
-                                actor: actor.clone(),
-                                ent: ent.clone(),
-                                cursor: None,
-                                task: pool.spawn(async_compat::Compat::new(
-                                    client.service.app.bsky.graph.get_follows(
-                                        get_follows::ParametersData {
-                                            actor,
-                                            cursor: None,
-                                            limit: limit(),
-                                        }
-                                        .into(),
-                                    ),
-                                )),
-                            }
-                        })
-                        .collect();
-                },
-            );
+        app.add_systems(OnEnter(Game::Get), spawn).add_systems(
+            Update,
+            (
+                get.run_if(in_state(Game::Get)),
+                connect.run_if(in_state(Game::Connect)),
+            ),
+        );
     }
 }
 
@@ -88,9 +57,9 @@ struct Orb {
     collider: avian2d::prelude::Collider,
 }
 
+#[derive(Component)]
 struct Follow {
     actor: atrium_api::types::string::AtIdentifier,
-    ent: Entity,
     cursor: Option<String>,
     task: bevy::tasks::Task<atrium_api::xrpc::Result<get_follows::Output, get_follows::Error>>,
 }
@@ -148,7 +117,6 @@ fn spawn(
     let actor = profile.actor.clone();
     commands.insert_resource(Follows(vec![Follow {
         actor: actor.clone(),
-        ent: Entity::PLACEHOLDER,
         cursor: None,
         task: bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
             client().service.app.bsky.graph.get_follows(
@@ -183,7 +151,10 @@ fn get(
         task.poll(cx)
     })) {
         Ok(atrium_api::types::Object { data, .. }) => {
+            let pool = bevy::tasks::IoTaskPool::get();
+            let client = client();
             for follow in &data.follows {
+                let actor: atrium_api::types::string::AtIdentifier = follow.handle.parse().unwrap();
                 users.insert(
                     follow.handle.as_str().into(),
                     commands
@@ -194,6 +165,20 @@ fn get(
                             User {
                                 handle: follow.handle.to_string(),
                                 shared: Vec::new(),
+                            },
+                            Follow {
+                                actor: actor.clone(),
+                                cursor: None,
+                                task: pool.spawn(async_compat::Compat::new(
+                                    client.service.app.bsky.graph.get_follows(
+                                        get_follows::ParametersData {
+                                            actor,
+                                            cursor: None,
+                                            limit: limit(),
+                                        }
+                                        .into(),
+                                    ),
+                                )),
                             },
                             MeshMaterial2d(mats.add(ColorMaterial::from(
                                 server.load_with_settings(
@@ -214,7 +199,7 @@ fn get(
                 *cursor = data.cursor;
                 // duplicated code :/
                 *task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
-                    client().service.app.bsky.graph.get_follows(
+                    client.service.app.bsky.graph.get_follows(
                         get_follows::ParametersData {
                             actor: actor.clone(),
                             cursor: cursor.clone(),
@@ -266,56 +251,53 @@ fn get(
     next.set(Game::Connect)
 }
 
-fn connect(users: Res<Users>, mut follows: ResMut<Follows>, mut user: Query<&mut User>) {
-    follows.retain_mut(
-        |Follow {
-             actor,
-             ent,
-             cursor,
-             task,
-         }| {
-            match bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_fn(|cx| {
-                task.poll(cx)
-            })) {
-                Ok(atrium_api::types::Object { data, .. }) => {
-                    let mut user = user.get_mut(*ent).unwrap();
-                    for follow in data.follows {
-                        if let Some(ent) = users.get(follow.handle.as_str()) {
-                            user.shared.push(ent.clone());
-                        }
+fn connect(
+    parallel: ParallelCommands,
+    users: Res<Users>,
+    mut user: Query<(Entity, &mut User, &mut Follow)>,
+) {
+    user.par_iter_mut().for_each(|(ent, mut user, mut follow)| {
+        match bevy::tasks::block_on(bevy::tasks::futures_lite::future::poll_fn(|cx| {
+            follow.task.poll(cx)
+        })) {
+            Ok(atrium_api::types::Object { data, .. }) => {
+                for follow in data.follows {
+                    if let Some(ent) = users.get(follow.handle.as_str()) {
+                        user.shared.push(ent.clone());
                     }
-                    if data.cursor.is_some() {
-                        *cursor = data.cursor;
-                        // duplicated code :/
-                        *task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
-                            client().service.app.bsky.graph.get_follows(
-                                get_follows::ParametersData {
-                                    actor: actor.clone(),
-                                    cursor: cursor.clone(),
-                                    limit: limit(),
-                                }
-                                .into(),
-                            ),
-                        ));
-                        return true;
-                    }
-                    return false;
                 }
-                Err(_) => {
+                if data.cursor.is_some() {
+                    follow.cursor = data.cursor;
                     // duplicated code :/
-                    *task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+                    follow.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
                         client().service.app.bsky.graph.get_follows(
                             get_follows::ParametersData {
-                                actor: actor.clone(),
-                                cursor: cursor.clone(),
+                                actor: follow.actor.clone(),
+                                cursor: follow.cursor.clone(),
                                 limit: limit(),
                             }
                             .into(),
                         ),
                     ));
-                    return true;
+                    return;
                 }
+                parallel.command_scope(|mut commands| {
+                    commands.entity(ent).remove::<Follow>();
+                });
             }
-        },
-    )
+            Err(_) => {
+                // duplicated code :/
+                follow.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+                    client().service.app.bsky.graph.get_follows(
+                        get_follows::ParametersData {
+                            actor: follow.actor.clone(),
+                            cursor: follow.cursor.clone(),
+                            limit: limit(),
+                        }
+                        .into(),
+                    ),
+                ));
+            }
+        }
+    });
 }
