@@ -117,7 +117,7 @@ fn spawn(
     commands.insert_resource(You(Follow {
         actor: actor.clone(),
         cursor: None,
-        task: bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+        task: bevy::tasks::IoTaskPool::get().spawn(Compat::new(
             client().service.app.bsky.graph.get_follows(
                 get_follows::ParametersData {
                     actor: actor.clone(),
@@ -160,7 +160,7 @@ fn get(
                             Follow {
                                 actor: actor.clone(),
                                 cursor: None,
-                                task: pool.spawn(async_compat::Compat::new(
+                                task: pool.spawn(Compat::new(
                                     client.service.app.bsky.graph.get_follows(
                                         get_follows::ParametersData {
                                             actor,
@@ -189,7 +189,7 @@ fn get(
             if data.cursor.is_some() {
                 you.cursor = data.cursor;
                 // duplicated code :/
-                you.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+                you.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
                     client.service.app.bsky.graph.get_follows(
                         get_follows::ParametersData {
                             actor: you.actor.clone(),
@@ -205,7 +205,7 @@ fn get(
         }
         Some(Err(_)) => {
             // duplicated code :/
-            you.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+            you.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
                 client().service.app.bsky.graph.get_follows(
                     get_follows::ParametersData {
                         actor: you.actor.clone(),
@@ -259,7 +259,7 @@ fn connect(
                 if data.cursor.is_some() {
                     follow.cursor = data.cursor;
                     // duplicated code :/
-                    follow.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+                    follow.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
                         client().service.app.bsky.graph.get_follows(
                             get_follows::ParametersData {
                                 actor: follow.actor.clone(),
@@ -277,7 +277,7 @@ fn connect(
             }
             Some(Err(_)) => {
                 // duplicated code :/
-                follow.task = bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+                follow.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
                     client().service.app.bsky.graph.get_follows(
                         get_follows::ParametersData {
                             actor: follow.actor.clone(),

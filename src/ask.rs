@@ -1,4 +1,5 @@
 use super::*;
+use atrium_api::app::bsky::actor::get_profile;
 
 pub struct Stuff;
 
@@ -47,9 +48,9 @@ fn ask(mut ctx: bevy_egui::EguiContexts, mut ask: ResMut<Ask>) {
                         .or_else(|_| (ask.buf.clone() + ".bsky.social").parse())
                     {
                         ask.task = Some(
-                            bevy::tasks::IoTaskPool::get().spawn(async_compat::Compat::new(
+                            bevy::tasks::IoTaskPool::get().spawn(Compat::new(
                                 client().service.app.bsky.actor.get_profile(
-                                    atrium_api::app::bsky::actor::get_profile::ParametersData {
+                                    get_profile::ParametersData {
                                         actor: actor.clone(),
                                     }
                                     .into(),
@@ -71,12 +72,7 @@ struct Ask {
     buf: String,
     err: Option<String>,
     task: Option<
-        bevy::tasks::Task<
-            atrium_api::xrpc::Result<
-                atrium_api::app::bsky::actor::get_profile::Output,
-                atrium_api::app::bsky::actor::get_profile::Error,
-            >,
-        >,
+        bevy::tasks::Task<atrium_api::xrpc::Result<get_profile::Output, get_profile::Error>>,
     >,
 }
 

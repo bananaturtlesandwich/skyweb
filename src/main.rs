@@ -6,6 +6,8 @@ use bevy_dylib;
 
 mod ask;
 mod bsky;
+mod compat;
+use compat::*;
 mod config;
 mod connect;
 
@@ -33,30 +35,32 @@ fn main() -> AppExit {
             bevy_egui::EguiPlugin::default(),
             avian2d::PhysicsPlugins::default(),
             avian2d::picking::PhysicsPickingPlugin,
-            bevy_tokio_tasks::TokioTasksPlugin::default(),
             ask::Stuff,
             bsky::Stuff,
             connect::Stuff,
             config::Stuff,
         ))
         .init_state::<Game>()
-        .add_systems(Startup, |mut commands: Commands| {
-            commands.spawn(Camera2d);
-        })
+        .add_systems(
+            Startup,
+            (compat::alive, |mut commands: Commands| {
+                commands.spawn(Camera2d);
+            }),
+        )
         .run()
 }
 
-static CLIENT: std::sync::OnceLock<
+static CLIENT: std::sync::LazyLock<
     atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient>,
-> = std::sync::OnceLock::new();
+> = std::sync::LazyLock::new(|| {
+    atrium_api::client::AtpServiceClient::new(atrium_xrpc_client::reqwest::ReqwestClient::new(
+        "https://public.api.bsky.app",
+    ))
+});
 
-fn client()
--> &'static atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient> {
-    CLIENT.get_or_init(|| {
-        atrium_api::client::AtpServiceClient::new(atrium_xrpc_client::reqwest::ReqwestClient::new(
-            "https://public.api.bsky.app",
-        ))
-    })
+fn client(
+) -> &'static atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient> {
+    &CLIENT
 }
 
 #[derive(Resource, Reflect)]

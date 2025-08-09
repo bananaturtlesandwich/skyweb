@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 atrium-api = "0.25"
 atrium-xrpc-client = "0.5"
-async-compat = "0.2"
+pin-project-lite = "0.2"
 bevy = { version = "0.16", default-features = false , features = [
     "x11",
     "wayland",
@@ -25,12 +25,15 @@ bevy = { version = "0.16", default-features = false , features = [
 ]}
 bevy_web_asset = { version = "0.11", default-features = false } # no redirection needed
 bevy_egui = "0.36"
-bevy-tokio-tasks = "0.16"
 avian2d = "0.3"
 webbrowser = "1.0"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
+tokio = { version = "1.47", features = ["rt-multi-thread"] }
 bevy_dylib = "0.16"
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+tokio = { version = "1.47", features = ["rt"] }
 
 [profile.dev.package."*"]
 opt-level = 3
