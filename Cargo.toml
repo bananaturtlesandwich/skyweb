@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 atrium-api = "0.25"
 atrium-xrpc-client = "0.5"
+async-compat = "0.2"
 bevy = { version = "0.16", default-features = false , features = [
     "x11",
     "wayland",
