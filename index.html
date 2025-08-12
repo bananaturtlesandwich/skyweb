@@ -4,7 +4,10 @@
         <meta charset="utf-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
         <title>skyweb</title>
-        <link data-trunk rel="inline" href="style.css"/>
+        <link data-trunk rel="copy-file" href="style.css"/>
+        <link data-trunk rel="copy-file" href="galaxy.png"/>
+        <link data-trunk rel="copy-file" href="grapesoda.ttf"/>
+        <link rel="stylesheet" href="style.css"/>
     </head>
     <body>
         <div class="game-container">
@@ -12,6 +15,21 @@
             <canvas id="bevy">
                 enable javascript :p
             </canvas>
+        </div>
+        <div>
+            <p>skyweb is a thing i made after going down the atproto webtoy rabbit hole :p</p>
+            <p>
+                if you like this consider buying me a
+                <a href="https://ko-fi.com/bananaturtlesandwich" target="_blank">kofi</a>
+                or checking out <a href="https://spuds.casa">the rest of my website</a>
+            </p>
+            <ul>
+                i could not have made this nearly as well without:
+                <li><a href="https://crates.io/crates/atrium-api">atrium</a> which is the wonderful rust atproto implementation</li>
+                <li><a href="https://bevy.org">bevy</a> which handles all the windowing, asset loading, state and ecs</li>
+                <li><a href="https://crates.io/crates/avian2d">avian</a> which resolves all the collisions really efficiently via the bevy ecs</li>
+                <li><a href="https://crates.io/crates/bevy_egui">bevy egui</a> which filled in for bevy while its widgets are still cooking</li>
+            </ul>
         </div>
     </body>
 </html>

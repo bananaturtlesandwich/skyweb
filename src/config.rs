@@ -31,9 +31,11 @@ fn config(mut ctx: bevy_egui::EguiContexts, mut config: ResMut<Config>) {
         });
         ui.horizontal(|ui| {
             ui.label("tick:");
-            ui.add(egui::DragValue::new(&mut config.tick))
+            ui.add(egui::DragValue::new(&mut config.tick).range(0.0..=f32::MAX))
         });
     });
+    // on wasm this is shown on the webpage
+    #[cfg(not(target_family = "wasm"))]
     egui::Window::new("about").show(ctx, |ui| {
         ui.label("skyweb is a fun thing i made because i randomly went down the atproto webtoy rabbit hole and wanted to make one!");
         ui.scope(|ui| {
@@ -53,16 +55,6 @@ fn config(mut ctx: bevy_egui::EguiContexts, mut config: ResMut<Config>) {
                 ui.label("•");
                 ui.hyperlink_to("avian", "https://crates.io/crates/avian2d");
                 ui.label("which resolves all the collisions really efficiently via the bevy ecs")
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label("•");
-                ui.hyperlink_to("bevy web asset", "https://crates.io/crates/bevy_web_asset");
-                ui.label("which asynchronously grabs user avatars (i couldn't have done that)") 
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label("•");
-                ui.hyperlink_to("bevy tokio tasks", "https://crates.io/crates/bevy-tokio-tasks");
-                ui.label("which provided the perfect interface to make atproto requests asynchronous from the game thread")
             });
             ui.horizontal_wrapped(|ui| {
                 ui.label("•");
