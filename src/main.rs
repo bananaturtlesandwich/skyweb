@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy_dylib;
 
 mod ask;
+mod avatar;
 mod bsky;
 mod compat;
 use compat::*;
@@ -14,8 +15,11 @@ mod connect;
 fn main() -> AppExit {
     bevy::app::App::new()
         .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
+        .register_asset_source(
+            "https",
+            bevy::asset::io::AssetSource::build().with_reader(|| Box::new(avatar::AvatarReader)),
+        )
         .add_plugins((
-            bevy_web_asset::WebAssetPlugin,
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -57,11 +61,6 @@ static CLIENT: std::sync::LazyLock<
         "https://public.api.bsky.app",
     ))
 });
-
-fn client(
-) -> &'static atrium_api::client::AtpServiceClient<atrium_xrpc_client::reqwest::ReqwestClient> {
-    &CLIENT
-}
 
 #[derive(Resource, Reflect)]
 struct Config {

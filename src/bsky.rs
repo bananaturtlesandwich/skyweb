@@ -118,7 +118,7 @@ fn spawn(
         actor: actor.clone(),
         cursor: None,
         task: bevy::tasks::IoTaskPool::get().spawn(Compat::new(
-            client().service.app.bsky.graph.get_follows(
+            CLIENT.service.app.bsky.graph.get_follows(
                 get_follows::ParametersData {
                     actor: actor.clone(),
                     cursor: None,
@@ -143,7 +143,6 @@ fn get(
     let data = match bevy::tasks::block_on(bevy::tasks::poll_once(&mut you.task)) {
         Some(Ok(atrium_api::types::Object { data, .. })) => {
             let pool = bevy::tasks::IoTaskPool::get();
-            let client = client();
             for follow in &data.follows {
                 let actor: atrium_api::types::string::AtIdentifier = follow.handle.parse().unwrap();
                 users.insert(
@@ -161,7 +160,7 @@ fn get(
                                 actor: actor.clone(),
                                 cursor: None,
                                 task: pool.spawn(Compat::new(
-                                    client.service.app.bsky.graph.get_follows(
+                                    CLIENT.service.app.bsky.graph.get_follows(
                                         get_follows::ParametersData {
                                             actor,
                                             cursor: None,
@@ -175,9 +174,7 @@ fn get(
                                 server.load_with_settings(
                                     &follow.avatar.clone().unwrap_or_default(),
                                     |s: &mut bevy::image::ImageLoaderSettings| {
-                                        s.format = bevy::image::ImageFormatSetting::Format(
-                                            ImageFormat::Jpeg,
-                                        )
+                                        s.format = bevy::image::ImageFormatSetting::Guess
                                     },
                                 ),
                             ))),
@@ -190,7 +187,7 @@ fn get(
                 you.cursor = data.cursor;
                 // duplicated code :/
                 you.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
-                    client.service.app.bsky.graph.get_follows(
+                    CLIENT.service.app.bsky.graph.get_follows(
                         get_follows::ParametersData {
                             actor: you.actor.clone(),
                             cursor: you.cursor.clone(),
@@ -206,7 +203,7 @@ fn get(
         Some(Err(_)) => {
             // duplicated code :/
             you.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
-                client().service.app.bsky.graph.get_follows(
+                CLIENT.service.app.bsky.graph.get_follows(
                     get_follows::ParametersData {
                         actor: you.actor.clone(),
                         cursor: you.cursor.clone(),
@@ -234,7 +231,7 @@ fn get(
                 MeshMaterial2d(mats.add(ColorMaterial::from(server.load_with_settings(
                     &data.subject.avatar.clone().unwrap_or_default(),
                     |s: &mut bevy::image::ImageLoaderSettings| {
-                        s.format = bevy::image::ImageFormatSetting::Format(ImageFormat::Jpeg)
+                        s.format = bevy::image::ImageFormatSetting::Guess
                     },
                 )))),
             ))
@@ -260,7 +257,7 @@ fn connect(
                     follow.cursor = data.cursor;
                     // duplicated code :/
                     follow.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
-                        client().service.app.bsky.graph.get_follows(
+                        CLIENT.service.app.bsky.graph.get_follows(
                             get_follows::ParametersData {
                                 actor: follow.actor.clone(),
                                 cursor: follow.cursor.clone(),
@@ -278,7 +275,7 @@ fn connect(
             Some(Err(_)) => {
                 // duplicated code :/
                 follow.task = bevy::tasks::IoTaskPool::get().spawn(Compat::new(
-                    client().service.app.bsky.graph.get_follows(
+                    CLIENT.service.app.bsky.graph.get_follows(
                         get_follows::ParametersData {
                             actor: follow.actor.clone(),
                             cursor: follow.cursor.clone(),

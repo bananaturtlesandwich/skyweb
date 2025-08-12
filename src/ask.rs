@@ -49,7 +49,7 @@ fn ask(mut ctx: bevy_egui::EguiContexts, mut ask: ResMut<Ask>) {
                     {
                         ask.task = Some(
                             bevy::tasks::IoTaskPool::get().spawn(Compat::new(
-                                client().service.app.bsky.actor.get_profile(
+                                CLIENT.service.app.bsky.actor.get_profile(
                                     get_profile::ParametersData {
                                         actor: actor.clone(),
                                     }
