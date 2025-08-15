@@ -5,20 +5,11 @@ use bevy::prelude::*;
 use bevy_dylib;
 
 mod ask;
-mod avatar;
-mod bsky;
 mod compat;
 use compat::*;
-mod config;
-mod connect;
 
 fn main() -> AppExit {
     bevy::app::App::new()
-        .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
-        .register_asset_source(
-            "https",
-            bevy::asset::io::AssetSource::build().with_reader(|| Box::new(avatar::AvatarReader)),
-        )
         .add_plugins((
             DefaultPlugins
                 .set(WindowPlugin {
@@ -37,12 +28,7 @@ fn main() -> AppExit {
                     ..default()
                 }),
             bevy_egui::EguiPlugin::default(),
-            avian2d::PhysicsPlugins::default(),
-            avian2d::picking::PhysicsPickingPlugin,
             ask::Stuff,
-            bsky::Stuff,
-            connect::Stuff,
-            config::Stuff,
         ))
         .init_state::<Game>()
         .add_systems(
@@ -62,40 +48,12 @@ static CLIENT: std::sync::LazyLock<
     ))
 });
 
-#[derive(Resource, Reflect)]
-struct Config {
-    attraction: f32,
-    repulsion: f32,
-    gravity: f32,
-    tick: f32,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            attraction: 400.0,
-            repulsion: 300.0,
-            gravity: 0.5,
-            tick: 0.5,
-        }
-    }
-}
-
 #[derive(Resource, Deref)]
 struct Profile {
     actor: atrium_api::types::string::AtIdentifier,
     #[deref]
     profile: atrium_api::app::bsky::actor::defs::ProfileViewDetailedData,
 }
-
-#[derive(Component)]
-struct User {
-    handle: String,
-    shared: Vec<Entity>,
-}
-
-#[derive(Resource, Deref, DerefMut, Default)]
-struct Users(std::collections::BTreeMap<String, Entity>);
 
 #[derive(States, Default, Debug, Eq, PartialEq, Hash, Clone)]
 #[states(scoped_entities)]
