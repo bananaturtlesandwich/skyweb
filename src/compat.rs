@@ -4,6 +4,9 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 pub fn alive() {
+    #[cfg(not(target_family = "wasm"))]
+    std::thread::spawn(|| TOKIO.block_on(Pending));
+    #[cfg(target_family = "wasm")]
     bevy::tasks::IoTaskPool::get()
         .spawn(async { TOKIO.block_on(Pending) })
         .detach();
@@ -49,10 +52,11 @@ fn get_runtime_handle() -> tokio::runtime::Handle {
 }
 
 static TOKIO: std::sync::LazyLock<tokio::runtime::Runtime> = std::sync::LazyLock::new(|| {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("cannot start tokio-1 runtime")
+    #[cfg(not(target_family = "wasm"))]
+    let mut builder = tokio::runtime::Builder::new_multi_thread();
+    #[cfg(target_family = "wasm")]
+    let mut builder = tokio::runtime::Builder::new_current_thread();
+    builder.enable_all().build().unwrap()
 });
 
 struct Pending;

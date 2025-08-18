@@ -19,13 +19,13 @@ impl AssetReader for AvatarReader {
             return Err(AssetReaderError::NotFound(path.into()));
         };
         let did = unsafe { url.get_unchecked(30..62) };
-        let req = DIRECTORY
+        let req = Compat::new(DIRECTORY
             .get(String::from("https://plc.directory/") + did)
-            .send()
+            .send())
             .await
             .map_err(|_| AssetReaderError::NotFound(path.into()))?;
-        let text = req
-            .text()
+        let text = Compat::new(req
+            .text())
             .await
             .map_err(|_| AssetReaderError::NotFound(path.into()))?;
         let tree: std::collections::BTreeMap<String, atrium_api::types::DataModel> =
@@ -43,12 +43,12 @@ impl AssetReader for AvatarReader {
         let client = atrium_api::client::AtpServiceClient::new(
             atrium_xrpc_client::reqwest::ReqwestClient::new(host.clone()),
         );
-        let blob = client
+        let blob = Compat::new(client
             .service
             .com
             .atproto
             .sync
-            .get_blob(atrium_api::com::atproto::sync::get_blob::ParametersData { cid, did }.into())
+            .get_blob(atrium_api::com::atproto::sync::get_blob::ParametersData { cid, did }.into()))
             .await;
         Ok(VecReader::new(
             blob.map_err(|_| AssetReaderError::NotFound(path.into()))?,
