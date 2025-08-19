@@ -15,7 +15,7 @@ pub struct AvatarReader;
 
 impl AssetReader for AvatarReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<VecReader, AssetReaderError> {
-        let Some(url) = path.to_str().clone() else {
+        let Some(url) = path.to_str() else {
             return Err(AssetReaderError::NotFound(path.into()));
         };
         let did = unsafe { url.get_unchecked(30..62) };

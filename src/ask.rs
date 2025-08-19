@@ -33,31 +33,29 @@ fn ask(mut ctx: bevy_egui::EguiContexts, mut ask: ResMut<Ask>) {
             ui.allocate_space(egui::Vec2::new(0.0, (ui.available_height() - size) / 2.0));
             ui.horizontal(|ui| {
                 ui.add_space((ui.available_width() - width) / 2.0);
-                if ui
+                if (ui
                     .add(
                         egui::TextEdit::singleline(&mut ask.buf)
                             .hint_text("enter your bsky handle"),
                     )
                     .lost_focus()
                     && ui.input(|input| input.key_pressed(egui::Key::Enter))
-                    || ui.button("go").clicked()
-                {
-                    if let Ok(actor) = ask
+                    || ui.button("go").clicked())
+                    && let Ok(actor) = ask
                         .buf
                         .parse::<atrium_api::types::string::AtIdentifier>()
                         .or_else(|_| (ask.buf.clone() + ".bsky.social").parse())
-                    {
-                        ask.task = Some(
-                            bevy::tasks::IoTaskPool::get().spawn(Compat::new(
-                                CLIENT.service.app.bsky.actor.get_profile(
-                                    get_profile::ParametersData {
-                                        actor: actor.clone(),
-                                    }
-                                    .into(),
-                                ),
-                            )),
-                        );
-                    };
+                {
+                    ask.task = Some(
+                        bevy::tasks::IoTaskPool::get().spawn(Compat::new(
+                            CLIENT.service.app.bsky.actor.get_profile(
+                                get_profile::ParametersData {
+                                    actor: actor.clone(),
+                                }
+                                .into(),
+                            ),
+                        )),
+                    );
                 }
             });
             if let Some(err) = ask.err.as_ref() {

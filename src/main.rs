@@ -14,7 +14,6 @@ mod connect;
 
 fn main() -> AppExit {
     bevy::app::App::new()
-        .insert_resource(avian2d::prelude::Gravity(Vec2::ZERO))
         .register_asset_source(
             "https",
             bevy::asset::io::AssetSource::build().with_reader(|| Box::new(avatar::AvatarReader)),
@@ -36,9 +35,8 @@ fn main() -> AppExit {
                     meta_check: bevy::asset::AssetMetaCheck::Never,
                     ..default()
                 }),
+            MeshPickingPlugin,
             bevy_egui::EguiPlugin::default(),
-            avian2d::PhysicsPlugins::default(),
-            avian2d::picking::PhysicsPickingPlugin,
             ask::Stuff,
             bsky::Stuff,
             connect::Stuff,
@@ -68,6 +66,11 @@ struct Config {
     repulsion: f32,
     gravity: f32,
     tick: f32,
+    iter: usize,
+    charge: f64,
+    distance: f64,
+    link: Option<f64>,
+    centre: f64,
 }
 
 impl Default for Config {
@@ -77,8 +80,21 @@ impl Default for Config {
             repulsion: 300.0,
             gravity: 0.5,
             tick: 0.5,
+            iter: 5,
+            charge: -30.0,
+            distance: 30.0,
+            link: None,
+            centre: 1.0,
         }
     }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+struct Sim {
+    #[deref]
+    sim: fjadra::Simulation,
+    nodes: Vec<fjadra::Node>,
+    links: Vec<(usize, usize)>,
 }
 
 #[derive(Resource, Deref)]
@@ -92,6 +108,7 @@ struct Profile {
 struct User {
     handle: String,
     shared: Vec<Entity>,
+    index: usize,
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]

@@ -18,6 +18,8 @@ bevy = { version = "0.16", default-features = false , features = [
     "bevy_scene",
     "bevy_winit",
     "bevy_core_pipeline",
+    "bevy_gizmos",
+    "bevy_mesh_picking_backend",
     "bevy_render",
     "bevy_sprite",
     "bevy_text",
@@ -28,8 +30,8 @@ bevy = { version = "0.16", default-features = false , features = [
     "multi_threaded",
 ]}
 bevy_egui = "0.36"
-avian2d = "0.3"
 webbrowser = "1.0"
+fjadra = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 tokio = { version = "1.47", features = ["rt-multi-thread"] }

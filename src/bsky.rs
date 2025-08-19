@@ -23,39 +23,8 @@ fn limit() -> Option<atrium_api::types::LimitedNonZeroU8<100>> {
     *LIMIT.get_or_init(|| Some(10.try_into().unwrap()))
 }
 
-#[derive(Resource)]
-struct Placement {
-    radius: f32,
-    pos: Vec3,
-    layer: u8,
-    capacity: u8,
-    angle: f32,
-    counter: u8,
-}
-
-impl Placement {
-    fn next(&mut self) -> Vec3 {
-        self.counter += 1;
-        self.pos = Quat::from_rotation_z(self.angle) * self.pos;
-        if self.counter == self.capacity {
-            self.counter = 0;
-            self.layer += 1;
-            // circumference of layer circle is 2*radius*layer*pi
-            // orb capacity in each layer is circumference/radius = 2*layer*pi
-            self.capacity = (2.0 * std::f32::consts::PI * self.layer as f32).floor() as u8;
-            // angle to rotate by is 2*pi/capacity = 2*pi / 2*pi*layer = 1/layer
-            self.angle = 1.0 / self.layer as f32;
-            self.pos += Vec3::Y * self.radius * 2.5;
-        }
-        self.pos
-    }
-}
-
-#[derive(Resource)]
-struct Orb {
-    mesh: Handle<Mesh>,
-    collider: avian2d::prelude::Collider,
-}
+#[derive(Resource, Deref)]
+struct Orb(Handle<Mesh>);
 
 #[derive(Component)]
 struct Follow {
@@ -73,45 +42,12 @@ fn spawn(
     profile: Res<Profile>,
     window: Single<&Window>,
 ) {
-    use avian2d::prelude::*;
     let width = window.width();
     let height = window.height();
-    // don't want our orbs escaping containment
-    commands.spawn((
-        Collider::half_space(Vec2::Y),
-        RigidBody::Static,
-        Transform::from_translation(Vec3::NEG_Y * height / 2.0),
-    ));
-    commands.spawn((
-        Collider::half_space(Vec2::NEG_Y),
-        RigidBody::Static,
-        Transform::from_translation(Vec3::Y * height / 2.0),
-    ));
-    commands.spawn((
-        Collider::half_space(Vec2::X),
-        RigidBody::Static,
-        Transform::from_translation(Vec3::NEG_X * width / 2.0),
-    ));
-    commands.spawn((
-        Collider::half_space(Vec2::NEG_X),
-        RigidBody::Static,
-        Transform::from_translation(Vec3::X * width / 2.0),
-    ));
     let radius = (width * height / profile.follows_count.unwrap() as f32 / std::f32::consts::PI)
         .sqrt()
         / 2.5;
-    commands.insert_resource(Placement {
-        radius,
-        pos: Vec3::ZERO,
-        layer: 0,
-        capacity: 1,
-        angle: 0.0,
-        counter: 0,
-    });
-    commands.insert_resource(Orb {
-        mesh: meshes.add(Circle::new(radius)),
-        collider: Collider::circle(radius),
-    });
+    commands.insert_resource(Orb(meshes.add(Circle::new(radius))));
     commands.init_resource::<Users>();
     let actor = profile.actor.clone();
     commands.insert_resource(You(Follow {
@@ -136,7 +72,6 @@ fn get(
     server: Res<AssetServer>,
     mut you: ResMut<You>,
     mut users: ResMut<Users>,
-    mut placement: ResMut<Placement>,
     mut mats: ResMut<Assets<ColorMaterial>>,
     mut next: ResMut<NextState<Game>>,
 ) {
@@ -145,16 +80,16 @@ fn get(
             let pool = bevy::tasks::IoTaskPool::get();
             for follow in &data.follows {
                 let actor: atrium_api::types::string::AtIdentifier = follow.handle.parse().unwrap();
+                let index = users.len();
                 users.insert(
                     follow.handle.as_str().into(),
                     commands
                         .spawn((
-                            orb.collider.clone(),
-                            avian2d::prelude::RigidBody::Dynamic,
-                            Mesh2d(orb.mesh.clone_weak()),
+                            Mesh2d(orb.clone_weak()),
                             User {
                                 handle: follow.handle.to_string(),
                                 shared: Vec::new(),
+                                index,
                             },
                             Follow {
                                 actor: actor.clone(),
@@ -172,13 +107,13 @@ fn get(
                             },
                             MeshMaterial2d(mats.add(ColorMaterial::from(
                                 server.load_with_settings(
-                                    &follow.avatar.clone().unwrap_or_default(),
+                                    follow.avatar.clone().unwrap_or_default(),
                                     |s: &mut bevy::image::ImageLoaderSettings| {
                                         s.format = bevy::image::ImageFormatSetting::Guess
                                     },
                                 ),
                             ))),
-                            Transform::from_translation(placement.next()),
+                            // Transform::from_translation(placement.next()),
                         ))
                         .id(),
                 );
@@ -217,19 +152,19 @@ fn get(
         None => return,
     };
     let shared = users.values().cloned().collect();
+    let index = users.len();
     users.insert(
         data.subject.handle.to_string(),
         commands
             .spawn((
-                orb.collider.clone(),
-                avian2d::prelude::RigidBody::Static,
                 User {
                     handle: data.subject.handle.to_string(),
                     shared,
+                    index,
                 },
-                Mesh2d(orb.mesh.clone_weak()),
+                Mesh2d(orb.clone_weak()),
                 MeshMaterial2d(mats.add(ColorMaterial::from(server.load_with_settings(
-                    &data.subject.avatar.clone().unwrap_or_default(),
+                    data.subject.avatar.clone().unwrap_or_default(),
                     |s: &mut bevy::image::ImageLoaderSettings| {
                         s.format = bevy::image::ImageFormatSetting::Guess
                     },
@@ -250,7 +185,7 @@ fn connect(
             Some(Ok(atrium_api::types::Object { data, .. })) => {
                 for follow in data.follows {
                     if let Some(ent) = users.get(follow.handle.as_str()) {
-                        user.shared.push(ent.clone());
+                        user.shared.push(*ent);
                     }
                 }
                 if data.cursor.is_some() {

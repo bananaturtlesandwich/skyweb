@@ -12,27 +12,52 @@ impl Plugin for Stuff {
 }
 
 #[rustfmt::skip]
-fn config(mut ctx: bevy_egui::EguiContexts, mut config: ResMut<Config>) {
+fn config(mut ctx: bevy_egui::EguiContexts, mut config: ResMut<Config>, mut sim: ResMut<Sim>) {
     use bevy_egui::egui;
     let Ok(ctx) = ctx.ctx_mut() else { return };
+    let mut rebuild = false;
     egui::Window::new("config").show(ctx,|ui| {
         ui.label("the default physics values may not suit your account so you can adjust those here");
         ui.horizontal(|ui| {
-            ui.label("attraction:");
-            ui.add(egui::DragValue::new(&mut config.attraction))
+            ui.label("iter:");
+            ui.add(egui::DragValue::new(&mut config.iter))
         });
         ui.horizontal(|ui| {
-            ui.label("repulsion:");
-            ui.add(egui::DragValue::new(&mut config.repulsion))
+            ui.label("charge strength:");
+            rebuild |= ui.add(egui::DragValue::new(&mut config.charge)).changed();
         });
         ui.horizontal(|ui| {
-            ui.label("gravity:");
-            ui.add(egui::DragValue::new(&mut config.gravity))
+            ui.label("link distance:");
+            rebuild |= ui.add(egui::DragValue::new(&mut config.distance)).changed();
         });
         ui.horizontal(|ui| {
-            ui.label("tick:");
-            ui.add(egui::DragValue::new(&mut config.tick).range(0.0..=f32::MAX))
+            ui.label("link strength:");
+            let mut checked = config.link.is_some();
+            if ui.checkbox(&mut checked, egui::Atoms::default()).changed() {
+                match checked {
+                    true => config.link = Some(0.0),
+                    false => config.link = None,
+                }
+            }
+            if let Some(link) = config.link.as_mut(){
+                rebuild |= ui.add(egui::DragValue::new(link)).changed();
+            }
         });
+        ui.horizontal(|ui| {
+            ui.label("centre strength:");
+            rebuild |= ui.add(egui::DragValue::new(&mut config.centre)).changed();
+        });
+        if rebuild {
+            let mut link = fjadra::Link::new(sim.links.iter().cloned()).distance(config.distance);
+            if let Some(slink) = config.link{
+                link = link.strength(slink)
+            }
+            **sim = fjadra::SimulationBuilder::new()
+                .build(sim.nodes.iter().cloned())
+                .add_force("link", link)
+                .add_force("charge", fjadra::ManyBody::new().strength(config.charge))
+                .add_force("centre", fjadra::Center::new().strength(config.centre));
+        };
     });
     // on wasm this is shown on the webpage
     #[cfg(not(target_family = "wasm"))]
