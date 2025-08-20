@@ -119,7 +119,11 @@ struct User {
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
-struct Network(std::collections::BTreeMap<String, Entity>);
+struct Network {
+    #[deref]
+    map: std::collections::BTreeMap<String, Entity>,
+    max: usize,
+}
 
 #[derive(States, Default, Debug, Eq, PartialEq, Hash, Clone)]
 enum Game {

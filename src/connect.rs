@@ -57,11 +57,13 @@ fn rebuild(
                 .iter()
                 .sort_unstable_by_key::<&User, _>(|user: &&User| user.index)
                 .map(|(_, user)| {
+                    let fraction = user.shared.len() as f64 / network.max as f64;
+                    let colour = colorous::PLASMA.eval_continuous(fraction);
                     [
-                        1.0,
-                        1.0,
-                        1.0,
-                        user.shared.len() as f32 / network.len() as f32,
+                        colour.r as f32 / 255.0,
+                        colour.g as f32 / 255.0,
+                        colour.b as f32 / 255.0,
+                        fraction as f32,
                     ]
                 })
                 .collect(),

@@ -138,7 +138,7 @@ fn get(
         }
         None => return,
     };
-    let shared = network.values().cloned().collect();
+    let shared: Vec<_> = network.values().cloned().collect();
     let index = network.len();
     network.insert(
         data.subject.handle.to_string(),
@@ -165,7 +165,7 @@ fn get(
 
 fn connect(
     mut commands: Commands,
-    network: Res<Network>,
+    mut network: ResMut<Network>,
     mut users: Query<(Entity, &mut User, &mut Follow)>,
 ) {
     for (ent, mut user, mut follow) in &mut users {
@@ -191,6 +191,7 @@ fn connect(
                     ));
                     return;
                 }
+                network.max = user.shared.len().max(network.max);
                 commands.entity(ent).remove::<Follow>();
                 commands.queue(move |world: &mut World| {
                     world.resource_scope(|world, mut sim: Mut<Sim>| {
@@ -200,7 +201,7 @@ fn connect(
                         }))
                     });
                     world.trigger(Rebuild);
-                })
+                });
             }
             Some(Err(_)) => {
                 // duplicated code :/
