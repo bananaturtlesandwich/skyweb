@@ -64,27 +64,32 @@ static CLIENT: std::sync::LazyLock<
 
 #[derive(Resource, Reflect)]
 struct Config {
-    iter: usize,
+    speed: usize,
     charge: f64,
-    distance: f64,
-    link: Option<f64>,
-    centre: f64,
+    link: f64,
+    size: f32,
+    pan: f32,
+    zoom: f32,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            iter: 1,
+            speed: 1,
             charge: -30.0,
-            distance: 30.0,
-            link: None,
-            centre: 1.0,
+            link: 30.0,
+            size: 10.0,
+            pan: 19.0,
+            zoom: 1.0,
         }
     }
 }
 
 #[derive(Event)]
 struct Rebuild;
+
+#[derive(Resource, Deref)]
+struct Orb(Handle<Mesh>);
 
 #[derive(Resource, Deref)]
 struct Lines(Handle<Mesh>);

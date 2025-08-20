@@ -12,44 +12,42 @@ impl Plugin for Stuff {
 }
 
 #[rustfmt::skip]
-fn config(mut ctx: bevy_egui::EguiContexts, mut commands:Commands, mut config: ResMut<Config>) {
+fn config(mut ctx: bevy_egui::EguiContexts, mut commands:Commands, mut config: ResMut<Config>, mut meshes: ResMut<Assets<Mesh>>, orb: Res<Orb>) {
     use bevy_egui::egui;
     let Ok(ctx) = ctx.ctx_mut() else { return };
     let mut rebuild = false;
     egui::Window::new("config").show(ctx, |ui| {
-        ui.label("the default physics values may not suit your account so you can adjust those here");
         ui.horizontal(|ui| {
-            ui.label("iter:");
-            ui.add(egui::DragValue::new(&mut config.iter))
+            ui.label("speed:");
+            ui.add(egui::DragValue::new(&mut config.speed))
         });
         ui.horizontal(|ui| {
-            ui.label("charge strength:");
+            ui.label("charge:");
             rebuild |= ui.add(egui::DragValue::new(&mut config.charge)).changed();
         });
         ui.horizontal(|ui| {
-            ui.label("link distance:");
-            rebuild |= ui.add(egui::DragValue::new(&mut config.distance)).changed();
-        });
-        ui.horizontal(|ui| {
-            ui.label("link strength:");
-            let mut checked = config.link.is_some();
-            if ui.checkbox(&mut checked, egui::Atoms::default()).changed() {
-                match checked {
-                    true => config.link = Some(0.0),
-                    false => config.link = None,
-                }
-            }
-            if let Some(link) = config.link.as_mut(){
-                rebuild |= ui.add(egui::DragValue::new(link)).changed();
-            }
-        });
-        ui.horizontal(|ui| {
-            ui.label("centre strength:");
-            rebuild |= ui.add(egui::DragValue::new(&mut config.centre)).changed();
+            ui.label("link:");
+            rebuild |= ui.add(egui::DragValue::new(&mut config.link)).changed();
         });
         if rebuild {
             commands.trigger(Rebuild)
         }
+        ui.horizontal(|ui| {
+            ui.label("size:");
+            if ui.add(egui::DragValue::new(&mut config.size)).changed() {
+                if let Some(orb) = meshes.get_mut(&**orb) {
+                    *orb = Mesh::from(Circle::new(config.size))
+                }
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.label("pan:");
+            ui.add(egui::DragValue::new(&mut config.pan));
+        });
+        ui.horizontal(|ui| {
+            ui.label("zoom:");
+            ui.add(egui::DragValue::new(&mut config.zoom));
+        });
     });
     // on wasm this is shown on the webpage
     #[cfg(not(target_family = "wasm"))]
@@ -70,8 +68,8 @@ fn config(mut ctx: bevy_egui::EguiContexts, mut commands:Commands, mut config: R
             });
             ui.horizontal_wrapped(|ui| {
                 ui.label("•");
-                ui.hyperlink_to("avian", "https://crates.io/crates/avian2d");
-                ui.label("which resolves all the collisions really efficiently via the bevy ecs")
+                ui.hyperlink_to("fjadra", "https://crates.io/crates/fjadra");
+                ui.label("which implements the verlet physics for laying out the orbs")
             });
             ui.horizontal_wrapped(|ui| {
                 ui.label("•");

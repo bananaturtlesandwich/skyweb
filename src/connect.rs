@@ -59,15 +59,14 @@ fn rebuild(
         *node =
             std::mem::take(node).position(trans.translation.x as f64, trans.translation.y as f64);
     }
-    let mut link = fjadra::Link::new(sim.links.iter().cloned()).distance(config.distance);
-    if let Some(slink) = config.link {
-        link = link.strength(slink)
-    }
     **sim = fjadra::SimulationBuilder::new()
         .build(sim.nodes.iter().cloned())
-        .add_force("link", link)
+        .add_force(
+            "link",
+            fjadra::Link::new(sim.links.iter().cloned()).distance(config.link),
+        )
         .add_force("charge", fjadra::ManyBody::new().strength(config.charge))
-        .add_force("centre", fjadra::Center::new().strength(config.centre));
+        .add_force("centre", fjadra::Center::new());
 }
 
 fn connect(
@@ -77,7 +76,7 @@ fn connect(
     mut users: Query<(&User, &mut Transform)>,
     lines: Res<Lines>,
 ) {
-    sim.tick(stats.iter);
+    sim.tick(stats.speed);
     let Some(mesh) = meshes.get_mut(&**lines) else {
         return;
     };
@@ -104,7 +103,7 @@ fn lines(
 ) {
     let lines = meshes.add(Mesh::new(
         bevy::render::mesh::PrimitiveTopology::LineList,
-        bevy::asset::RenderAssetUsages::all(),
+        bevy::asset::RenderAssetUsages::default(),
     ));
     commands.spawn((
         Mesh2d(lines.clone_weak()),
