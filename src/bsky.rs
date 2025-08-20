@@ -36,18 +36,8 @@ struct Follow {
 #[derive(Resource, Deref, DerefMut)]
 struct You(Follow);
 
-fn spawn(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    profile: Res<Profile>,
-    window: Single<&Window>,
-) {
-    let width = window.width();
-    let height = window.height();
-    let radius = (width * height / profile.follows_count.unwrap() as f32 / std::f32::consts::PI)
-        .sqrt()
-        / 2.5;
-    commands.insert_resource(Orb(meshes.add(Circle::new(radius))));
+fn spawn(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, profile: Res<Profile>) {
+    commands.insert_resource(Orb(meshes.add(Circle::new(1.0))));
     commands.init_resource::<Network>();
     let actor = profile.actor.clone();
     commands.insert_resource(You(Follow {

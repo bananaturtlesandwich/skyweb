@@ -146,6 +146,9 @@ fn out(
 }
 
 fn link(trigger: Trigger<Pointer<Pressed>>, mut ctx: bevy_egui::EguiContexts, users: Query<&User>) {
+    if trigger.button != PointerButton::Primary {
+        return;
+    }
     if ctx.ctx_mut().is_ok_and(|ctx| ctx.is_pointer_over_area()) {
         return;
     }
@@ -160,9 +163,13 @@ fn web(
     mut ctx: bevy_egui::EguiContexts,
     interactions: Query<&bevy::picking::pointer::PointerInteraction>,
     users: Query<(&User, &Transform)>,
+    proj: Single<(&Transform, &Projection)>,
 ) {
     use bevy_egui::egui;
     let Ok(ctx) = ctx.ctx_mut() else { return };
+    let (camera, Projection::Orthographic(proj)) = &*proj else {
+        return;
+    };
     for (ent, _) in interactions
         .iter()
         .filter_map(bevy::picking::pointer::PointerInteraction::get_nearest_hit)
@@ -174,8 +181,8 @@ fn web(
         let text = egui::style::default_text_styles()[&egui::TextStyle::Body].clone();
         let pad = ctx.style().spacing.window_margin.bottomf();
         let pos = egui::pos2(
-            trans.translation.x + dim.width() / 2.0,
-            -trans.translation.y + dim.height() / 2.0,
+            (trans.translation.x - camera.translation.x) / proj.scale + dim.width() / 2.0,
+            (-trans.translation.y + camera.translation.y) / proj.scale + dim.height() / 2.0,
         );
         let mut start = pos.clone();
         start.x -= pad;

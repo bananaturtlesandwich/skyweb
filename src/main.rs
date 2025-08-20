@@ -9,6 +9,7 @@ mod avatar;
 mod bsky;
 mod compat;
 use compat::*;
+mod camera;
 mod config;
 mod connect;
 
@@ -41,6 +42,7 @@ fn main() -> AppExit {
             bsky::Stuff,
             connect::Stuff,
             config::Stuff,
+            camera::Stuff,
         ))
         .init_state::<Game>()
         .add_systems(
@@ -72,7 +74,7 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            iter: 5,
+            iter: 1,
             charge: -30.0,
             distance: 30.0,
             link: None,
