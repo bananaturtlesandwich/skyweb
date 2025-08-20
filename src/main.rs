@@ -70,6 +70,7 @@ struct Config {
     size: f32,
     pan: f32,
     zoom: f32,
+    paused: bool,
 }
 
 impl Default for Config {
@@ -81,6 +82,7 @@ impl Default for Config {
             size: 6.0,
             pan: 19.0,
             zoom: 1.0,
+            paused: false,
         }
     }
 }
@@ -120,7 +122,6 @@ struct User {
 struct Network(std::collections::BTreeMap<String, Entity>);
 
 #[derive(States, Default, Debug, Eq, PartialEq, Hash, Clone)]
-#[states(scoped_entities)]
 enum Game {
     #[default]
     Ask,

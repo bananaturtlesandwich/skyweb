@@ -85,6 +85,7 @@ fn check(mut commands: Commands, mut ask: ResMut<Ask>, mut next: ResMut<NextStat
                 actor: profile.handle.parse().unwrap(),
                 profile: profile.data,
             });
+            ask.buf.clear();
             next.set(Game::Get)
         }
         Some(Err(e)) => ask.err = Some(e.to_string()),

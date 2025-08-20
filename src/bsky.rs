@@ -159,6 +159,7 @@ fn get(
             ))
             .id(),
     );
+    commands.remove_resource::<You>();
     next.set(Game::Connect)
 }
 

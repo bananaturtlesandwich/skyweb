@@ -43,7 +43,7 @@ fn pan(
         return;
     };
     for motion in mouse.read() {
-        trans.translation.x += motion.delta.x * config.pan / proj.scale * time.delta_secs();
-        trans.translation.y -= motion.delta.y * config.pan / proj.scale * time.delta_secs();
+        trans.translation.x -= motion.delta.x * config.pan / proj.scale * time.delta_secs();
+        trans.translation.y += motion.delta.y * config.pan / proj.scale * time.delta_secs();
     }
 }

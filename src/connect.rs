@@ -89,11 +89,14 @@ fn rebuild(
 fn connect(
     mut sim: ResMut<Sim>,
     mut meshes: ResMut<Assets<Mesh>>,
-    stats: Res<Config>,
+    config: Res<Config>,
     mut users: Query<(&User, &mut Transform)>,
     lines: Res<Lines>,
 ) {
-    sim.tick(stats.speed);
+    if config.paused || sim.is_finished() {
+        return;
+    }
+    sim.tick(config.speed);
     let Some(mesh) = meshes.get_mut(&**lines) else {
         return;
     };
