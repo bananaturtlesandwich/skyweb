@@ -9,6 +9,8 @@ impl Plugin for Stuff {
             .add_systems(OnEnter(Game::Connect), setup)
             .add_systems(Update, (connect, web).run_if(in_state(Game::Connect)))
             .add_observer(rebuild)
+            .add_observer(over)
+            .add_observer(out)
             .add_observer(link);
     }
 }
@@ -66,6 +68,38 @@ fn connect(mut sim: ResMut<Sim>, stats: Res<Config>, mut users: Query<(&User, &m
     }
 }
 
+fn over(
+    trigger: Trigger<Pointer<Over>>,
+    mut commands: Commands,
+    window: Single<Entity, With<bevy::window::PrimaryWindow>>,
+    users: Query<(), With<User>>,
+) {
+    if !users.contains(trigger.target()) {
+        return;
+    }
+    commands
+        .entity(*window)
+        .insert(bevy::winit::cursor::CursorIcon::System(
+            bevy::window::SystemCursorIcon::Pointer,
+        ));
+}
+
+fn out(
+    trigger: Trigger<Pointer<Out>>,
+    mut commands: Commands,
+    window: Single<Entity, With<bevy::window::PrimaryWindow>>,
+    users: Query<(), With<User>>,
+) {
+    if !users.contains(trigger.target()) {
+        return;
+    }
+    commands
+        .entity(*window)
+        .insert(bevy::winit::cursor::CursorIcon::System(
+            bevy::window::SystemCursorIcon::Default,
+        ));
+}
+
 fn link(trigger: Trigger<Pointer<Pressed>>, mut ctx: bevy_egui::EguiContexts, users: Query<&User>) {
     if ctx.ctx_mut().is_ok_and(|ctx| ctx.is_pointer_over_area()) {
         return;
@@ -78,9 +112,12 @@ fn link(trigger: Trigger<Pointer<Pressed>>, mut ctx: bevy_egui::EguiContexts, us
 
 fn web(
     mut gizmo: Gizmos,
+    mut ctx: bevy_egui::EguiContexts,
     interactions: Query<&bevy::picking::pointer::PointerInteraction>,
     users: Query<(&User, &Transform)>,
 ) {
+    use bevy_egui::egui;
+    let Ok(ctx) = ctx.ctx_mut() else { return };
     for (ent, _) in interactions
         .iter()
         .filter_map(bevy::picking::pointer::PointerInteraction::get_nearest_hit)
@@ -88,6 +125,35 @@ fn web(
         let Ok((user, trans)) = users.get(*ent) else {
             continue;
         };
+        let dim = ctx.available_rect();
+        let text = egui::style::default_text_styles()[&egui::TextStyle::Body].clone();
+        let pad = ctx.style().spacing.window_margin.bottomf();
+        let pos = egui::pos2(
+            trans.translation.x + dim.width() / 2.0,
+            -trans.translation.y + dim.height() / 2.0,
+        );
+        let mut start = pos.clone();
+        start.x -= pad;
+        start.y -= pad;
+        let mut end = pos.clone();
+        end.x += ctx.fonts(|fonts| {
+            user.handle
+                .chars()
+                .fold(0.0, |acc, c| acc + fonts.glyph_width(&text, c))
+        }) + pad;
+        end.y += text.size + pad;
+        ctx.debug_painter().rect_filled(
+            egui::Rect::from_min_max(start, end),
+            ctx.style().visuals.window_corner_radius,
+            ctx.style().visuals.widgets.noninteractive.bg_fill,
+        );
+        ctx.debug_painter().text(
+            pos,
+            egui::Align2::LEFT_TOP,
+            user.handle.clone(),
+            text,
+            ctx.style().visuals.noninteractive().text_color(),
+        );
         for shared in &user.shared {
             let Ok((user2, trans2)) = users.get(*shared) else {
                 continue;
