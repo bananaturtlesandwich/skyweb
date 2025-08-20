@@ -51,7 +51,7 @@ fn config(mut ctx: bevy_egui::EguiContexts, mut commands:Commands, mut config: R
     });
     // on wasm this is shown on the webpage
     #[cfg(not(target_family = "wasm"))]
-    egui::Window::new("about").show(ctx, |ui| {
+    egui::Window::new("about").default_open(false).show(ctx, |ui| {
         ui.label("skyweb is a fun thing i made because i randomly went down the atproto webtoy rabbit hole and wanted to make one!");
         ui.scope(|ui| {
             ui.spacing_mut().item_spacing.x = ui.fonts(|fonts| fonts.glyph_width(&egui::TextStyle::Body.resolve(ui.style()), ' '));

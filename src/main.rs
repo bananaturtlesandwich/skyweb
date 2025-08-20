@@ -78,7 +78,7 @@ impl Default for Config {
             speed: 1,
             charge: -30.0,
             link: 30.0,
-            size: 10.0,
+            size: 6.0,
             pan: 19.0,
             zoom: 1.0,
         }

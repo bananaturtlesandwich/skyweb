@@ -50,6 +50,23 @@ fn rebuild(
             .flat_map(|(i1, i2)| [*i1 as u32, *i2 as u32])
             .collect(),
     ));
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_COLOR,
+        bevy::render::mesh::VertexAttributeValues::Float32x4(
+            users
+                .iter()
+                .sort_unstable_by_key::<&User, _>(|user: &&User| user.index)
+                .map(|(_, user)| {
+                    [
+                        1.0,
+                        1.0,
+                        1.0,
+                        user.shared.len() as f32 / network.len() as f32,
+                    ]
+                })
+                .collect(),
+        ),
+    );
     for (node, (trans, _)) in sim
         .nodes
         .iter_mut()
@@ -80,7 +97,8 @@ fn connect(
     let Some(mesh) = meshes.get_mut(&**lines) else {
         return;
     };
-    let mut position = Vec::with_capacity(users.iter().count());
+    let cap = users.iter().count();
+    let mut position = Vec::with_capacity(cap);
     for ([x, y], (_, mut trans)) in sim.positions().zip(
         users
             .iter_mut()
@@ -161,6 +179,7 @@ fn link(trigger: Trigger<Pointer<Pressed>>, mut ctx: bevy_egui::EguiContexts, us
 fn web(
     mut gizmo: Gizmos,
     mut ctx: bevy_egui::EguiContexts,
+    network: Res<Network>,
     interactions: Query<&bevy::picking::pointer::PointerInteraction>,
     users: Query<(&User, &Transform)>,
     proj: Single<(&Transform, &Projection)>,
@@ -206,16 +225,20 @@ fn web(
             text,
             ctx.style().visuals.noninteractive().text_color(),
         );
-        for shared in &user.shared {
-            let Ok((user2, trans2)) = users.get(*shared) else {
-                continue;
-            };
+        for (ent2, (user2, trans2)) in network
+            .iter()
+            .filter_map(|(_, ent)| Some((ent, users.get(*ent).ok()?)))
+        {
+            let follows = user.shared.contains(ent2);
+            let followed = user2.shared.contains(ent);
             gizmo.line(
                 trans.translation,
                 trans2.translation,
-                match user2.shared.contains(&ent) {
-                    true => LinearRgba::GREEN,
-                    false => LinearRgba::BLUE,
+                match (follows, followed) {
+                    (true, true) => LinearRgba::GREEN,
+                    (true, false) => LinearRgba::BLUE,
+                    (false, true) => LinearRgba::RED,
+                    (false, false) => continue,
                 },
             )
         }

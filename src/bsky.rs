@@ -34,7 +34,7 @@ struct Follow {
 struct You(Follow);
 
 fn spawn(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, profile: Res<Profile>) {
-    commands.insert_resource(Orb(meshes.add(Circle::new(10.0))));
+    commands.insert_resource(Orb(meshes.add(Circle::new(6.0))));
     commands.init_resource::<Network>();
     let actor = profile.actor.clone();
     commands.insert_resource(You(Follow {
