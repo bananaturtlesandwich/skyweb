@@ -84,6 +84,9 @@ impl Default for Config {
 #[derive(Event)]
 struct Rebuild;
 
+#[derive(Component)]
+struct Lines;
+
 #[derive(Resource, Deref, DerefMut)]
 struct Sim {
     #[deref]

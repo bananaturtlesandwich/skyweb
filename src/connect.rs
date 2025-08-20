@@ -6,7 +6,7 @@ impl Plugin for Stuff {
     fn build(&self, app: &mut App) {
         app.register_type::<Config>()
             .init_resource::<Config>()
-            .add_systems(OnEnter(Game::Connect), setup)
+            .add_systems(OnEnter(Game::Connect), (setup, lines))
             .add_systems(Update, (connect, web).run_if(in_state(Game::Connect)))
             .add_observer(rebuild)
             .add_observer(over)
@@ -32,10 +32,24 @@ fn setup(mut commands: Commands, network: Res<Network>) {
 
 fn rebuild(
     _: Trigger<Rebuild>,
-    config: Res<Config>,
+    mut meshes: ResMut<Assets<Mesh>>,
     mut sim: ResMut<Sim>,
+    config: Res<Config>,
+    network: Res<Network>,
     users: Query<(&Transform, &User)>,
+    lines: Single<&Mesh2d, With<Lines>>,
 ) {
+    let Some(mesh) = meshes.get_mut(*lines) else {
+        return;
+    };
+    mesh.insert_indices(bevy::render::mesh::Indices::U32(
+        sim.links
+            .iter()
+            // don't really care about follows you share with yourself
+            .skip(network.len())
+            .flat_map(|(i1, i2)| [*i1 as u32, *i2 as u32])
+            .collect(),
+    ));
     for (node, (trans, _)) in sim
         .nodes
         .iter_mut()
@@ -56,8 +70,18 @@ fn rebuild(
         .add_force("centre", fjadra::Center::new().strength(config.centre));
 }
 
-fn connect(mut sim: ResMut<Sim>, stats: Res<Config>, mut users: Query<(&User, &mut Transform)>) {
+fn connect(
+    mut sim: ResMut<Sim>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    stats: Res<Config>,
+    mut users: Query<(&User, &mut Transform)>,
+    lines: Single<&Mesh2d, With<Lines>>,
+) {
     sim.tick(stats.iter);
+    let Some(mesh) = meshes.get_mut(*lines) else {
+        return;
+    };
+    let mut position = Vec::with_capacity(users.iter().count());
     for ([x, y], (_, mut trans)) in sim.positions().zip(
         users
             .iter_mut()
@@ -65,7 +89,28 @@ fn connect(mut sim: ResMut<Sim>, stats: Res<Config>, mut users: Query<(&User, &m
     ) {
         trans.translation.x = x as f32;
         trans.translation.y = y as f32;
+        position.push([x as f32, y as f32, 0.0]);
     }
+    mesh.insert_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        bevy::render::mesh::VertexAttributeValues::Float32x3(position),
+    );
+}
+
+fn lines(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut mats: ResMut<Assets<ColorMaterial>>,
+) {
+    commands.spawn((
+        Lines,
+        Mesh2d(meshes.add(Mesh::new(
+            bevy::render::mesh::PrimitiveTopology::LineList,
+            bevy::asset::RenderAssetUsages::all(),
+        ))),
+        MeshMaterial2d(mats.add(ColorMaterial::default())),
+        Transform::from_translation(Vec3::NEG_Z),
+    ));
 }
 
 fn over(
