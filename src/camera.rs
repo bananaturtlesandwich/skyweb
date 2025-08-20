@@ -28,7 +28,7 @@ fn zoom(
         return;
     };
     for scroll in mouse.read() {
-        proj.scale += scroll.y * config.zoom * time.delta_secs();
+        proj.scale -= scroll.y * config.zoom * time.delta_secs();
     }
 }
 

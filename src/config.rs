@@ -27,29 +27,37 @@ fn config(
     #[cfg(not(target_family = "wasm"))]
     egui::Window::new("about").default_open(false).show(ctx, |ui| {
         ui.label("skyweb is a fun thing i made because i randomly went down the atproto webtoy rabbit hole and wanted to make one!");
-        ui.scope(|ui| {
-            ui.spacing_mut().item_spacing.x = ui.fonts(|fonts| fonts.glyph_width(&egui::TextStyle::Body.resolve(ui.style()), ' '));
-            ui.label("it was made possible by:");
-            ui.horizontal_wrapped(|ui| {
-                ui.label("•");
-                ui.hyperlink_to("atrium", "https://crates.io/crates/atrium-api");
-                ui.label("which is the wonderful rust atproto implementation")
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label("•");
-                ui.hyperlink_to("bevy", "https://bevy.org");
-                ui.label("which handles all the windowing, asset loading, state and ecs")
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label("•");
-                ui.hyperlink_to("fjadra", "https://crates.io/crates/fjadra");
-                ui.label("which implements the verlet physics for laying out the orbs")
-            });
-            ui.horizontal_wrapped(|ui| {
-                ui.label("•");
-                ui.hyperlink_to("bevy egui", "https://crates.io/crates/bevy_egui");
-                ui.label("which was able to fill in for bevy while its widgets are still cooking")
-            });
+        ui.spacing_mut().item_spacing.x = ui.fonts(|fonts| fonts.glyph_width(&egui::TextStyle::Body.resolve(ui.style()), ' '));
+        ui.horizontal_wrapped(|ui| {
+            ui.label("if you like this consider buying me a");
+            ui.hyperlink_to("kofi", "https://ko-fi.com/bananaturtlesandwich");
+            ui.label("or checking out ");
+            ui.hyperlink_to("the rest of my website", "https://spuds.casa");
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label("you can also check out the code over on ");
+            ui.hyperlink_to("github", "https://github.com/repos/bananaturtlesandwich/skyweb");
+        });
+        ui.label("this was made possible by:");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("•");
+            ui.hyperlink_to("atrium", "https://crates.io/crates/atrium-api");
+            ui.label("which is the wonderful rust atproto implementation")
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label("•");
+            ui.hyperlink_to("bevy", "https://bevy.org");
+            ui.label("which handles all the windowing, asset loading, state and ecs")
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label("•");
+            ui.hyperlink_to("fjadra", "https://crates.io/crates/fjadra");
+            ui.label("which implements the verlet physics for laying out the orbs")
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label("•");
+            ui.hyperlink_to("bevy egui", "https://crates.io/crates/bevy_egui");
+            ui.label("which was able to fill in for bevy while its widgets are still cooking")
         });
     });
     let mut rebuild = false;
