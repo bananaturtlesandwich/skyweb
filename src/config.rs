@@ -12,11 +12,11 @@ impl Plugin for Stuff {
 }
 
 #[rustfmt::skip]
-fn config(mut ctx: bevy_egui::EguiContexts, mut config: ResMut<Config>, mut sim: ResMut<Sim>) {
+fn config(mut ctx: bevy_egui::EguiContexts, mut commands:Commands, mut config: ResMut<Config>) {
     use bevy_egui::egui;
     let Ok(ctx) = ctx.ctx_mut() else { return };
     let mut rebuild = false;
-    egui::Window::new("config").show(ctx,|ui| {
+    egui::Window::new("config").show(ctx, |ui| {
         ui.label("the default physics values may not suit your account so you can adjust those here");
         ui.horizontal(|ui| {
             ui.label("iter:");
@@ -48,16 +48,8 @@ fn config(mut ctx: bevy_egui::EguiContexts, mut config: ResMut<Config>, mut sim:
             rebuild |= ui.add(egui::DragValue::new(&mut config.centre)).changed();
         });
         if rebuild {
-            let mut link = fjadra::Link::new(sim.links.iter().cloned()).distance(config.distance);
-            if let Some(slink) = config.link{
-                link = link.strength(slink)
-            }
-            **sim = fjadra::SimulationBuilder::new()
-                .build(sim.nodes.iter().cloned())
-                .add_force("link", link)
-                .add_force("charge", fjadra::ManyBody::new().strength(config.charge))
-                .add_force("centre", fjadra::Center::new().strength(config.centre));
-        };
+            commands.trigger(Rebuild)
+        }
     });
     // on wasm this is shown on the webpage
     #[cfg(not(target_family = "wasm"))]

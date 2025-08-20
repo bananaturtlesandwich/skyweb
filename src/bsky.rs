@@ -48,7 +48,7 @@ fn spawn(
         .sqrt()
         / 2.5;
     commands.insert_resource(Orb(meshes.add(Circle::new(radius))));
-    commands.init_resource::<Users>();
+    commands.init_resource::<Network>();
     let actor = profile.actor.clone();
     commands.insert_resource(You(Follow {
         actor: actor.clone(),
@@ -71,7 +71,7 @@ fn get(
     orb: Res<Orb>,
     server: Res<AssetServer>,
     mut you: ResMut<You>,
-    mut users: ResMut<Users>,
+    mut network: ResMut<Network>,
     mut mats: ResMut<Assets<ColorMaterial>>,
     mut next: ResMut<NextState<Game>>,
 ) {
@@ -80,8 +80,8 @@ fn get(
             let pool = bevy::tasks::IoTaskPool::get();
             for follow in &data.follows {
                 let actor: atrium_api::types::string::AtIdentifier = follow.handle.parse().unwrap();
-                let index = users.len();
-                users.insert(
+                let index = network.len();
+                network.insert(
                     follow.handle.as_str().into(),
                     commands
                         .spawn((
@@ -151,9 +151,9 @@ fn get(
         }
         None => return,
     };
-    let shared = users.values().cloned().collect();
-    let index = users.len();
-    users.insert(
+    let shared = network.values().cloned().collect();
+    let index = network.len();
+    network.insert(
         data.subject.handle.to_string(),
         commands
             .spawn((
@@ -176,15 +176,15 @@ fn get(
 }
 
 fn connect(
-    parallel: ParallelCommands,
-    users: Res<Users>,
-    mut user: Query<(Entity, &mut User, &mut Follow)>,
+    mut commands: Commands,
+    network: Res<Network>,
+    mut users: Query<(Entity, &mut User, &mut Follow)>,
 ) {
-    user.par_iter_mut().for_each(|(ent, mut user, mut follow)| {
+    for (ent, mut user, mut follow) in &mut users {
         match bevy::tasks::block_on(bevy::tasks::poll_once(&mut follow.task)) {
             Some(Ok(atrium_api::types::Object { data, .. })) => {
                 for follow in data.follows {
-                    if let Some(ent) = users.get(follow.handle.as_str()) {
+                    if let Some(ent) = network.get(follow.handle.as_str()) {
                         user.shared.push(*ent);
                     }
                 }
@@ -203,9 +203,16 @@ fn connect(
                     ));
                     return;
                 }
-                parallel.command_scope(|mut commands| {
-                    commands.entity(ent).remove::<Follow>();
-                });
+                commands.entity(ent).remove::<Follow>();
+                commands.queue(move |world: &mut World| {
+                    world.resource_scope(|world, mut sim: Mut<Sim>| {
+                        let user = world.entity(ent).get::<User>().unwrap();
+                        sim.links.extend(user.shared.iter().filter_map(|ent| {
+                            Some((user.index, world.entity(*ent).get::<User>().unwrap().index))
+                        }))
+                    });
+                    world.trigger(Rebuild);
+                })
             }
             Some(Err(_)) => {
                 // duplicated code :/
@@ -222,5 +229,5 @@ fn connect(
             }
             None => {}
         }
-    });
+    }
 }

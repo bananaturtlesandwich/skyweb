@@ -62,10 +62,6 @@ static CLIENT: std::sync::LazyLock<
 
 #[derive(Resource, Reflect)]
 struct Config {
-    attraction: f32,
-    repulsion: f32,
-    gravity: f32,
-    tick: f32,
     iter: usize,
     charge: f64,
     distance: f64,
@@ -76,10 +72,6 @@ struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            attraction: 400.0,
-            repulsion: 300.0,
-            gravity: 0.5,
-            tick: 0.5,
             iter: 5,
             charge: -30.0,
             distance: 30.0,
@@ -88,6 +80,9 @@ impl Default for Config {
         }
     }
 }
+
+#[derive(Event)]
+struct Rebuild;
 
 #[derive(Resource, Deref, DerefMut)]
 struct Sim {
@@ -112,7 +107,7 @@ struct User {
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
-struct Users(std::collections::BTreeMap<String, Entity>);
+struct Network(std::collections::BTreeMap<String, Entity>);
 
 #[derive(States, Default, Debug, Eq, PartialEq, Hash, Clone)]
 #[states(scoped_entities)]

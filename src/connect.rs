@@ -8,43 +8,50 @@ impl Plugin for Stuff {
             .init_resource::<Config>()
             .add_systems(OnEnter(Game::Connect), setup)
             .add_systems(Update, (connect, web).run_if(in_state(Game::Connect)))
+            .add_observer(rebuild)
             .add_observer(link);
     }
 }
 
-fn setup(mut commands: Commands, res: Res<Users>, users: Query<(Entity, &User, &Transform)>) {
-    let last = res.len() - 1;
-    let nodes: Vec<_> = users
-        .iter()
-        .sort_unstable_by_key::<&User, _>(|user: &&User| user.index)
-        .map(|(_, user, trans)| match user.index == last {
-            true => fjadra::Node::default()
-                .fixed_position(trans.translation.x as f64, trans.translation.y as f64),
-            false => fjadra::Node::default()
-                .position(trans.translation.x as f64, trans.translation.y as f64),
-        })
-        .collect();
-    let links: Vec<_> = users
-        .iter()
-        .filter(|(_, user, _)| user.index != last)
-        .flat_map(|(_, user, _)| {
-            user.shared
-                .iter()
-                .filter_map(|ent| Some((user.index, users.get(*ent).ok()?.1.index)))
-        })
-        .collect();
+fn setup(mut commands: Commands, network: Res<Network>) {
+    let count = network.len();
+    let mut nodes = vec![fjadra::Node::default(); count];
+    nodes[count - 1] = fjadra::Node::default().fixed_position(0.0, 0.0);
     commands.insert_resource(Sim {
         sim: fjadra::SimulationBuilder::new()
             .build(nodes.iter().cloned())
-            .add_force(
-                "link",
-                fjadra::Link::new(links.iter().cloned()).strength(10.0),
-            )
-            .add_force("charge", fjadra::ManyBody::new().strength(-1500.0))
+            .add_force("link", fjadra::Link::new([]))
+            .add_force("charge", fjadra::ManyBody::new())
             .add_force("centre", fjadra::Center::new()),
         nodes,
-        links,
+        links: (0..count).map(|i| (count - 1, i)).collect(),
     });
+}
+
+fn rebuild(
+    _: Trigger<Rebuild>,
+    config: Res<Config>,
+    mut sim: ResMut<Sim>,
+    users: Query<(&Transform, &User)>,
+) {
+    for (node, (trans, _)) in sim
+        .nodes
+        .iter_mut()
+        .zip(users.iter().sort_by_key::<&User, usize>(|user| user.index))
+    {
+        // this doesn't reset fixed
+        *node =
+            std::mem::take(node).position(trans.translation.x as f64, trans.translation.y as f64);
+    }
+    let mut link = fjadra::Link::new(sim.links.iter().cloned()).distance(config.distance);
+    if let Some(slink) = config.link {
+        link = link.strength(slink)
+    }
+    **sim = fjadra::SimulationBuilder::new()
+        .build(sim.nodes.iter().cloned())
+        .add_force("link", link)
+        .add_force("charge", fjadra::ManyBody::new().strength(config.charge))
+        .add_force("centre", fjadra::Center::new().strength(config.centre));
 }
 
 fn connect(mut sim: ResMut<Sim>, stats: Res<Config>, mut users: Query<(&User, &mut Transform)>) {
