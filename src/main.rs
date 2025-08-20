@@ -27,6 +27,7 @@ fn main() -> AppExit {
                         canvas: Some("#bevy".into()),
                         fit_canvas_to_parent: true,
                         prevent_default_event_handling: false,
+                        ime_enabled: true,
                         ..default()
                     }),
                     ..default()
@@ -70,25 +71,21 @@ static CLIENT: std::sync::LazyLock<
 
 #[derive(Resource, Reflect)]
 struct Config {
+    paused: bool,
     speed: usize,
     charge: f64,
     link: f64,
     size: f32,
-    pan: f32,
-    zoom: f32,
-    paused: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
+            paused: false,
             speed: 1,
             charge: -30.0,
             link: 30.0,
             size: 6.0,
-            pan: 19.0,
-            zoom: 1.0,
-            paused: false,
         }
     }
 }

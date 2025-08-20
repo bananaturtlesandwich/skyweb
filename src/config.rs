@@ -17,11 +17,15 @@ fn config(
     mut config: ResMut<Config>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut next: ResMut<NextState<Game>>,
-    users: Query<Entity, With<User>>,
     orb: Res<Orb>,
+    users: Query<Entity, With<User>>,
+    mut proj: Single<&mut Projection>,
 ) {
     use bevy_egui::egui;
     let Ok(ctx) = ctx.ctx_mut() else { return };
+    let Projection::Orthographic(proj) = &mut **proj else {
+        return;
+    };
     #[rustfmt::skip]
     // on wasm this is shown on the webpage
     #[cfg(not(target_family = "wasm"))]
@@ -31,12 +35,14 @@ fn config(
         ui.horizontal_wrapped(|ui| {
             ui.label("if you like this consider buying me a");
             ui.hyperlink_to("kofi", "https://ko-fi.com/bananaturtlesandwich");
+            ui.label(", following me on");
+            ui.hyperlink_to("bsky", "https://bsky.app/profile/spuds.casa");
             ui.label("or checking out ");
             ui.hyperlink_to("the rest of my website", "https://spuds.casa");
         });
         ui.horizontal_wrapped(|ui| {
             ui.label("you can also check out the code over on ");
-            ui.hyperlink_to("github", "https://github.com/repos/bananaturtlesandwich/skyweb");
+            ui.hyperlink_to("github", "https://github.com/bananaturtlesandwich/skyweb");
         });
         ui.label("this was made possible by:");
         ui.horizontal_wrapped(|ui| {
@@ -63,40 +69,38 @@ fn config(
     let mut rebuild = false;
     #[rustfmt::skip]
     egui::Window::new("config").show(ctx, |ui| {
+        ui.label("to pan the camera");
+        ui.label("middle-click + drag");
+        ui.horizontal(|ui| {
+            ui.label("paused:");
+            ui.checkbox(&mut config.paused, egui::Atoms::default());
+        });
         ui.horizontal(|ui| {
             ui.label("speed:");
-            ui.add(egui::DragValue::new(&mut config.speed))
+            ui.add(egui::DragValue::new(&mut config.speed).range(1..=usize::MAX))
         });
         ui.horizontal(|ui| {
             ui.label("charge:");
-            rebuild |= ui.add(egui::DragValue::new(&mut config.charge)).changed();
+            rebuild |= ui.add(egui::DragValue::new(&mut config.charge).range(f32::MIN..=0.0)).changed();
         });
         ui.horizontal(|ui| {
             ui.label("link:");
-            rebuild |= ui.add(egui::DragValue::new(&mut config.link)).changed();
+            rebuild |= ui.add(egui::DragValue::new(&mut config.link).range(0.0..=f32::MAX)).changed();
         });
         if rebuild {
             commands.trigger(Rebuild)
         }
         ui.horizontal(|ui| {
             ui.label("size:");
-            if ui.add(egui::DragValue::new(&mut config.size)).changed() {
+            if ui.add(egui::DragValue::new(&mut config.size).range(0.0..=f32::MAX)).changed() {
                 if let Some(orb) = meshes.get_mut(&**orb) {
                     *orb = Mesh::from(Circle::new(config.size))
                 }
             }
         });
         ui.horizontal(|ui| {
-            ui.label("pan speed:");
-            ui.add(egui::DragValue::new(&mut config.pan));
-        });
-        ui.horizontal(|ui| {
-            ui.label("zoom speed:");
-            ui.add(egui::DragValue::new(&mut config.zoom));
-        });
-        ui.horizontal(|ui| {
-            ui.label("paused:");
-            ui.checkbox(&mut config.paused, egui::Atoms::default());
+            ui.label("zoom:");
+            ui.add(egui::DragValue::new(&mut proj.scale).range(0.1..=f32::MAX).speed(0.02));
         });
         if ui.button("reset").clicked() {
             commands.remove_resource::<Sim>();
