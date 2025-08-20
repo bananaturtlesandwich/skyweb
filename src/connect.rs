@@ -36,10 +36,10 @@ fn rebuild(
     mut sim: ResMut<Sim>,
     config: Res<Config>,
     network: Res<Network>,
+    lines: Res<Lines>,
     users: Query<(&Transform, &User)>,
-    lines: Single<&Mesh2d, With<Lines>>,
 ) {
-    let Some(mesh) = meshes.get_mut(*lines) else {
+    let Some(mesh) = meshes.get_mut(&**lines) else {
         return;
     };
     mesh.insert_indices(bevy::render::mesh::Indices::U32(
@@ -75,10 +75,10 @@ fn connect(
     mut meshes: ResMut<Assets<Mesh>>,
     stats: Res<Config>,
     mut users: Query<(&User, &mut Transform)>,
-    lines: Single<&Mesh2d, With<Lines>>,
+    lines: Res<Lines>,
 ) {
     sim.tick(stats.iter);
-    let Some(mesh) = meshes.get_mut(*lines) else {
+    let Some(mesh) = meshes.get_mut(&**lines) else {
         return;
     };
     let mut position = Vec::with_capacity(users.iter().count());
@@ -102,15 +102,16 @@ fn lines(
     mut meshes: ResMut<Assets<Mesh>>,
     mut mats: ResMut<Assets<ColorMaterial>>,
 ) {
+    let lines = meshes.add(Mesh::new(
+        bevy::render::mesh::PrimitiveTopology::LineList,
+        bevy::asset::RenderAssetUsages::all(),
+    ));
     commands.spawn((
-        Lines,
-        Mesh2d(meshes.add(Mesh::new(
-            bevy::render::mesh::PrimitiveTopology::LineList,
-            bevy::asset::RenderAssetUsages::all(),
-        ))),
+        Mesh2d(lines.clone_weak()),
         MeshMaterial2d(mats.add(ColorMaterial::default())),
         Transform::from_translation(Vec3::NEG_Z),
     ));
+    commands.insert_resource(Lines(lines));
 }
 
 fn over(
