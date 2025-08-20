@@ -48,7 +48,13 @@ fn main() -> AppExit {
         .add_systems(
             Startup,
             (compat::alive, |mut commands: Commands| {
-                commands.spawn(Camera2d);
+                commands.spawn((
+                    Camera2d,
+                    Projection::Orthographic(OrthographicProjection {
+                        scale: 0.5,
+                        ..OrthographicProjection::default_2d()
+                    }),
+                ));
             }),
         )
         .run()

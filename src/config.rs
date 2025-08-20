@@ -22,55 +22,6 @@ fn config(
 ) {
     use bevy_egui::egui;
     let Ok(ctx) = ctx.ctx_mut() else { return };
-    let mut rebuild = false;
-    #[rustfmt::skip]
-    egui::Window::new("config").show(ctx, |ui| {
-        ui.horizontal(|ui| {
-            ui.label("speed:");
-            ui.add(egui::DragValue::new(&mut config.speed))
-        });
-        ui.horizontal(|ui| {
-            ui.label("charge:");
-            rebuild |= ui.add(egui::DragValue::new(&mut config.charge)).changed();
-        });
-        ui.horizontal(|ui| {
-            ui.label("link:");
-            rebuild |= ui.add(egui::DragValue::new(&mut config.link)).changed();
-        });
-        if rebuild {
-            commands.trigger(Rebuild)
-        }
-        ui.horizontal(|ui| {
-            ui.label("size:");
-            if ui.add(egui::DragValue::new(&mut config.size)).changed() {
-                if let Some(orb) = meshes.get_mut(&**orb) {
-                    *orb = Mesh::from(Circle::new(config.size))
-                }
-            }
-        });
-        ui.horizontal(|ui| {
-            ui.label("pan:");
-            ui.add(egui::DragValue::new(&mut config.pan));
-        });
-        ui.horizontal(|ui| {
-            ui.label("zoom:");
-            ui.add(egui::DragValue::new(&mut config.zoom));
-        });
-        ui.horizontal(|ui| {
-            ui.label("paused:");
-            ui.checkbox(&mut config.paused, egui::Atoms::default());
-        });
-        if ui.button("reset").clicked() {
-            commands.remove_resource::<Sim>();
-            commands.remove_resource::<Profile>();
-            commands.remove_resource::<Network>();
-            commands.remove_resource::<Lines>();
-            for ent in &users {
-                commands.entity(ent).despawn()
-            }
-            next.set(Game::Ask)
-        }
-    });
     #[rustfmt::skip]
     // on wasm this is shown on the webpage
     #[cfg(not(target_family = "wasm"))]
@@ -100,5 +51,54 @@ fn config(
                 ui.label("which was able to fill in for bevy while its widgets are still cooking")
             });
         });
+    });
+    let mut rebuild = false;
+    #[rustfmt::skip]
+    egui::Window::new("config").show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            ui.label("speed:");
+            ui.add(egui::DragValue::new(&mut config.speed))
+        });
+        ui.horizontal(|ui| {
+            ui.label("charge:");
+            rebuild |= ui.add(egui::DragValue::new(&mut config.charge)).changed();
+        });
+        ui.horizontal(|ui| {
+            ui.label("link:");
+            rebuild |= ui.add(egui::DragValue::new(&mut config.link)).changed();
+        });
+        if rebuild {
+            commands.trigger(Rebuild)
+        }
+        ui.horizontal(|ui| {
+            ui.label("size:");
+            if ui.add(egui::DragValue::new(&mut config.size)).changed() {
+                if let Some(orb) = meshes.get_mut(&**orb) {
+                    *orb = Mesh::from(Circle::new(config.size))
+                }
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.label("pan speed:");
+            ui.add(egui::DragValue::new(&mut config.pan));
+        });
+        ui.horizontal(|ui| {
+            ui.label("zoom speed:");
+            ui.add(egui::DragValue::new(&mut config.zoom));
+        });
+        ui.horizontal(|ui| {
+            ui.label("paused:");
+            ui.checkbox(&mut config.paused, egui::Atoms::default());
+        });
+        if ui.button("reset").clicked() {
+            commands.remove_resource::<Sim>();
+            commands.remove_resource::<Profile>();
+            commands.remove_resource::<Network>();
+            commands.remove_resource::<Lines>();
+            for ent in &users {
+                commands.entity(ent).despawn()
+            }
+            next.set(Game::Ask)
+        }
     });
 }
