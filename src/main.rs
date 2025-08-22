@@ -26,7 +26,6 @@ fn main() -> AppExit {
                         title: "skyweb".into(),
                         canvas: Some("#bevy".into()),
                         fit_canvas_to_parent: true,
-                        prevent_default_event_handling: false,
                         ime_enabled: true,
                         ..default()
                     }),

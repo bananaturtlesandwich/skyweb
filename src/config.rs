@@ -70,7 +70,7 @@ fn config(
     #[rustfmt::skip]
     egui::Window::new("config").show(ctx, |ui| {
         ui.label("to pan the camera");
-        ui.label("middle-click + drag");
+        ui.label("right-click + drag");
         ui.horizontal(|ui| {
             ui.label("paused:");
             ui.checkbox(&mut config.paused, egui::Atoms::default());

@@ -7,7 +7,7 @@ impl Plugin for Stuff {
         app.add_systems(
             Update,
             pan.run_if(bevy::input::common_conditions::input_pressed(
-                MouseButton::Middle,
+                MouseButton::Right,
             ))
             .run_if(in_state(Game::Connect)),
         );
