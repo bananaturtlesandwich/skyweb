@@ -66,6 +66,10 @@ fn get(
         Some(Ok(atrium_api::types::Object { data, .. })) => {
             let pool = bevy::tasks::IoTaskPool::get();
             for follow in &data.follows {
+                // there used to be a bug in the app that allowed you to follow yourself
+                if follow.handle == data.subject.handle {
+                    continue;
+                }
                 let actor: atrium_api::types::string::AtIdentifier = follow.handle.parse().unwrap();
                 let index = network.len();
                 network.insert(
