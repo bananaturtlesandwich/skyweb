@@ -1,9 +1,6 @@
-name: deploy website
+name: deploy
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "*.*.*"
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -2,10 +2,22 @@ use super::*;
 use bevy::asset::io::{AssetReader, AssetReaderError, VecReader};
 use std::path::Path;
 
+pub struct Stuff;
+
+impl Plugin for Stuff {
+    fn build(&self, app: &mut App) {
+        app.register_asset_source(
+            "https",
+            bevy::asset::io::AssetSource::build().with_reader(|| Box::new(AvatarReader)),
+        )
+        .add_systems(Update, process.after(bevy::asset::AssetEvents));
+    }
+}
+
 static CLIENT: std::sync::LazyLock<reqwest::Client> =
     std::sync::LazyLock::new(reqwest::Client::new);
 
-pub struct AvatarReader;
+struct AvatarReader;
 
 impl AssetReader for AvatarReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<VecReader, AssetReaderError> {
@@ -75,5 +87,26 @@ impl AssetReader for AvatarReader {
 
     async fn read_meta<'a>(&'a self, _: &'a Path) -> Result<VecReader, AssetReaderError> {
         todo!()
+    }
+}
+
+fn process(mut events: EventReader<AssetEvent<Image>>, mut images: ResMut<Assets<Image>>) {
+    for event in events.read() {
+        let AssetEvent::LoadedWithDependencies { id } = event else {
+            continue;
+        };
+        let Some(image) = images.get_mut(*id) else {
+            continue;
+        };
+        match std::mem::take(image).try_into_dynamic() {
+            Ok(dynamic) => {
+                *image = Image::from_dynamic(
+                    dynamic.thumbnail(64, 64),
+                    image.texture_descriptor.format.is_srgb(),
+                    bevy::asset::RenderAssetUsages::default(),
+                )
+            }
+            Err(e) => bevy::log::error!("{e}"),
+        }
     }
 }

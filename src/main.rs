@@ -15,11 +15,8 @@ mod connect;
 
 fn main() -> AppExit {
     bevy::app::App::new()
-        .register_asset_source(
-            "https",
-            bevy::asset::io::AssetSource::build().with_reader(|| Box::new(avatar::AvatarReader)),
-        )
         .add_plugins((
+            avatar::Stuff,
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
