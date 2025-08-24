@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <title>skyweb</title>
+        
+        
+        
+        <link rel="stylesheet" href="style.css"/>
+    <link rel="modulepreload" href="/skyweb-1b6c8a521cd5448e.js" crossorigin="anonymous" integrity="sha384-Xyjl4HrRJ3QQs/OkWdvcMyx8T7JFwBtvE51u/VM3MzOUFUMcdu58Wv0AuOGcA2RE"><link rel="preload" href="/skyweb-1b6c8a521cd5448e_bg.wasm" crossorigin="anonymous" integrity="sha384-0YgZ8ls0s0vox2nnA60MgIP4BzGzrTmsS3+3lDoz/SGDO9gSMhAt9UkG/YzKHAQS" as="fetch" type="application/wasm"></head>
+    <body>
+        <div>
+            <p>skyweb is a thing i made after going down the atproto webtoy rabbit hole :p</p>
+            <p>
+                you can check out the code over on 
+                <a href="https://github.com/bananaturtlesandwich/skyweb" target="_blank">github</a>
+            </p>
+            <p>
+                if you like this consider buying me a
+                <a href="https://ko-fi.com/bananaturtlesandwich" target="_blank">kofi</a>,
+                following me on
+                <a href="https://bsky.app/profile/spuds.casa" target="_blank">bsky</a>
+                or checking out <a href="https://spuds.casa">the rest of my website</a>
+            </p>
+        </div>
+        <div class="game-container">
+            <div class="lds-dual-ring"></div>
+            <canvas id="bevy">
+                enable javascript :p
+            </canvas>
+        </div>
+        <div>
+            <ul>
+                this was made possible by:
+                <li><a href="https://crates.io/crates/atrium-api">atrium</a> which is the wonderful rust atproto implementation</li>
+                <li><a href="https://bevy.org">bevy</a> which handles all the windowing, asset loading, state and ecs</li>
+                <li><a href="https://crates.io/crates/fjadra">fjadra</a> which implements the verlet physics for laying out the orbs</li>
+                <li><a href="https://crates.io/crates/bevy_egui">bevy egui</a> which filled in for bevy while its widgets are still cooking</li>
+            </ul>
+        </div>
+    
+<script type="module">
+import init, * as bindings from '/skyweb-1b6c8a521cd5448e.js';
+const wasm = await init({ module_or_path: '/skyweb-1b6c8a521cd5448e_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script></body>
+</html>
